@@ -114,6 +114,29 @@ struct WorkoutDataPoint: Codable {
     }
 }
 
+// MARK: - Activity Ring Data
+
+struct ActivityRingData {
+    let moveCalories: Double      // calories burned
+    let moveGoal: Double          // move goal in kcal
+    let exerciseMinutes: Int      // minutes of exercise
+    let exerciseGoal: Int         // exercise goal in minutes
+    let standHours: Int           // hours stood
+    let standGoal: Int            // stand goal in hours
+
+    var moveProgress: Double {
+        moveGoal > 0 ? min(1.0, moveCalories / moveGoal) : 0
+    }
+
+    var exerciseProgress: Double {
+        exerciseGoal > 0 ? min(1.0, Double(exerciseMinutes) / Double(exerciseGoal)) : 0
+    }
+
+    var standProgress: Double {
+        standGoal > 0 ? min(1.0, Double(standHours) / Double(standGoal)) : 0
+    }
+}
+
 // MARK: - Workout Manager
 
 final class WorkoutManager: NSObject, ObservableObject {
@@ -130,6 +153,7 @@ final class WorkoutManager: NSObject, ObservableObject {
     @Published private(set) var averageHeartRate: Int = 0
     @Published private(set) var maxHeartRate: Int = 0
     @Published private(set) var selectedWorkoutType: WorkoutType = .running
+    @Published private(set) var activityRings: ActivityRingData?
 
     // MARK: - Session Data
 
@@ -183,6 +207,7 @@ final class WorkoutManager: NSObject, ObservableObject {
             HKObjectType.quantityType(forIdentifier: .activeEnergyBurned)!,
             HKObjectType.quantityType(forIdentifier: .distanceWalkingRunning)!,
             HKObjectType.quantityType(forIdentifier: .distanceCycling)!,
+            HKObjectType.activitySummaryType(),
         ]
 
         try await healthStore.requestAuthorization(toShare: typesToShare, read: typesToRead)
@@ -241,6 +266,9 @@ final class WorkoutManager: NSObject, ObservableObject {
         )
 
         try await workoutBuilder?.beginCollection(at: sessionStartDate!)
+
+        // Fetch today's activity rings (includes today's workout contribution)
+        await fetchTodayActivityRings()
 
         // Start data streaming timer (simulates real-time polling)
         await MainActor.run {
@@ -383,6 +411,14 @@ final class WorkoutManager: NSObject, ObservableObject {
                 elapsed: elapsedSeconds
             )
         }
+
+        // Refresh activity rings every 60 seconds
+        if elapsedSeconds - lastActivityRingFetchSeconds >= 60 {
+            lastActivityRingFetchSeconds = elapsedSeconds
+            Task {
+                await self.fetchTodayActivityRings()
+            }
+        }
     }
 
     // MARK: - Heart Rate Zone Calculation
@@ -397,7 +433,63 @@ final class WorkoutManager: NSObject, ObservableObject {
         }
     }
 
-    // MARK: - Backend Communication
+    // MARK: - Activity Ring Data
+
+    func fetchTodayActivityRings() async {
+        let calendar = Calendar.current
+        let now = Date()
+        var startComponents = calendar.dateComponents([.year, .month, .day], from: now)
+        startComponents.hour = 0
+        startComponents.minute = 0
+        startComponents.second = 0
+        guard let startDate = calendar.date(from: startComponents) else { return }
+        let endDate = now
+
+        return await withCheckedContinuation { continuation in
+            let query = HKActivitySummaryQuery { [weak self] _, summaries, error in
+                guard error == nil, let summaries = summaries, !summaries.isEmpty else {
+                    continuation.resume()
+                    return
+                }
+
+                var moveCal: Double = 0
+                var moveGoal: Double = 0
+                var exerciseMin: Int = 0
+                var exerciseGoal: Int = 0
+                var standHr: Int = 0
+                var standGoal: Int = 0
+
+                for summary in summaries {
+                    moveCal += summary.activeEnergyBurned.doubleValue(for: .kilocalorie())
+                    moveGoal += summary.activeEnergyGoal.doubleValue(for: .kilocalorie())
+                    exerciseMin += Int(summary.appleExerciseTime.doubleValue(for: .minute()))
+                    exerciseGoal += Int(summary.appleExerciseGoal.doubleValue(for: .minute()))
+                    standHr += Int(summary.appleStandHours.doubleValue(for: .hour()))
+                    standGoal += Int(summary.appleStandGoal.doubleValue(for: .hour()))
+                }
+
+                let data = ActivityRingData(
+                    moveCalories: moveCal,
+                    moveGoal: moveGoal,
+                    exerciseMinutes: exerciseMin,
+                    exerciseGoal: exerciseGoal,
+                    standHours: standHr,
+                    standGoal: standGoal
+                )
+
+                DispatchQueue.main.async {
+                    self?.activityRings = data
+                }
+                continuation.resume()
+            }
+
+            query.startDate = startDate
+            query.endDate = endDate
+            self.healthStore.execute(query)
+        }
+    }
+
+    private var lastActivityRingFetchSeconds: Int = 0
 
     private func sendWorkoutSummary(
         sessionId: String,
@@ -445,6 +537,7 @@ final class WorkoutManager: NSObject, ObservableObject {
         lastSyncedCalorie = 0
         lastSyncedDistance = 0
         lastComplicationUpdateSeconds = 0
+        lastActivityRingFetchSeconds = 0
         sessionId = ""
         workoutSession = nil
         workoutBuilder = nil

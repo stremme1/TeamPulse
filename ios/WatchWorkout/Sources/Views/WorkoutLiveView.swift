@@ -186,17 +186,15 @@ struct WorkoutDetailView: View {
     }
 
     private var moveProgress: CGFloat {
-        let goal: Double = 500
-        return CGFloat(min(1.0, workoutManager.activeCalories / goal))
+        CGFloat(workoutManager.activityRings?.moveProgress ?? 0)
     }
 
     private var exerciseProgress: CGFloat {
-        let goal: Double = 30
-        return CGFloat(min(1.0, Double(workoutManager.elapsedSeconds) / 60.0 / goal))
+        CGFloat(workoutManager.activityRings?.exerciseProgress ?? 0)
     }
 
     private var standProgress: CGFloat {
-        CGFloat(min(1.0, Double(workoutManager.elapsedSeconds % 4) / 4.0))
+        CGFloat(workoutManager.activityRings?.standProgress ?? 0)
     }
 
     var body: some View {
@@ -213,7 +211,7 @@ struct WorkoutDetailView: View {
                         progress: moveProgress,
                         color: ringMove,
                         label: "MOVE",
-                        value: Int(workoutManager.activeCalories),
+                        value: Int(workoutManager.activityRings?.moveCalories ?? workoutManager.activeCalories),
                         unit: "kcal"
                     )
 
@@ -222,7 +220,7 @@ struct WorkoutDetailView: View {
                         progress: exerciseProgress,
                         color: ringExercise,
                         label: "EXERCISE",
-                        value: workoutManager.elapsedSeconds / 60,
+                        value: workoutManager.activityRings?.exerciseMinutes ?? (workoutManager.elapsedSeconds / 60),
                         unit: "min"
                     )
 
@@ -231,7 +229,7 @@ struct WorkoutDetailView: View {
                         progress: standProgress,
                         color: ringStand,
                         label: "STAND",
-                        value: workoutManager.elapsedSeconds % 4,
+                        value: workoutManager.activityRings?.standHours ?? (workoutManager.elapsedSeconds % 4),
                         unit: "hr"
                     )
 

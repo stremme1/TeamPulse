@@ -38,6 +38,10 @@ struct WorkoutSummaryView: View {
     @State private var animatedExercise: CGFloat = 0
     @State private var animatedStand: CGFloat = 0
 
+    private var ringData: ActivityRingData? {
+        workoutManager.activityRings
+    }
+
     var body: some View {
         ZStack {
             Color.black.ignoresSafeArea()
@@ -120,13 +124,13 @@ struct WorkoutSummaryView: View {
         }
         .onAppear {
             withAnimation(.easeOut(duration: 0.8)) {
-                animatedMove = 0.85
+                animatedMove = CGFloat(ringData?.moveProgress ?? 0.85)
             }
             withAnimation(.easeOut(duration: 0.8).delay(0.15)) {
-                animatedExercise = 0.60
+                animatedExercise = CGFloat(ringData?.exerciseProgress ?? 0.60)
             }
             withAnimation(.easeOut(duration: 0.8).delay(0.30)) {
-                animatedStand = 0.45
+                animatedStand = CGFloat(ringData?.standProgress ?? 0.45)
             }
         }
     }
