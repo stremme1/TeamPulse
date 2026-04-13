@@ -274,7 +274,7 @@ async def sync_recovery_metrics(req: RecoveryMetricsRequest):
     metrics = upsert_recovery_metrics(
         req.athlete_id,
         req.date,
-        req.model_dump(exclude_none=True),
+        req.model_dump(exclude_none=True, exclude={"athlete_id", "date"}),
     )
     logger.info(f"Recovery metrics synced: athlete={req.athlete_id} date={req.date}")
     return {"metrics": metrics}
@@ -314,6 +314,7 @@ async def websocket_endpoint(websocket: WebSocket, athlete_id: str):
     await manager.connect(websocket, athlete_id)
     upsert_athlete(athlete_id)
 
+    heartbeat_task = None
     try:
         # Send connection acknowledgment
         await websocket.send_json({
@@ -371,7 +372,8 @@ async def websocket_endpoint(websocket: WebSocket, athlete_id: str):
     except Exception as e:
         logger.error(f"WebSocket error: {athlete_id} — {e}")
     finally:
-        heartbeat_task.cancel()
+        if heartbeat_task is not None:
+            heartbeat_task.cancel()
         await manager.disconnect(websocket, athlete_id)
 
 
@@ -397,7 +399,8 @@ async def get_live_dashboard_data(athlete_id: str, session_id: str = Query(...))
             "SELECT * FROM heart_rate_data WHERE session_id = ? ORDER BY timestamp DESC LIMIT 1",
             (session_id,),
         )
-        last_hr = dict(c.fetchone()) if c.fetchone() else None
+        hr_row = c.fetchone()
+        last_hr = dict(hr_row) if hr_row else None
 
         # Time in zones
         c.execute(
@@ -419,7 +422,8 @@ async def get_live_dashboard_data(athlete_id: str, session_id: str = Query(...))
             "SELECT * FROM calorie_data WHERE session_id = ? ORDER BY timestamp DESC LIMIT 1",
             (session_id,),
         )
-        last_cal = dict(c.fetchone()) if c.fetchone() else None
+        cal_row = c.fetchone()
+        last_cal = dict(cal_row) if cal_row else None
 
     return {
         "session": session,
