@@ -64,6 +64,7 @@ enum WorkoutType: String, CaseIterable, Identifiable {
 
 enum WorkoutState: Equatable {
     case idle
+    case countdown
     case running
     case paused
     case ended
@@ -189,8 +190,13 @@ final class WorkoutManager: NSObject, ObservableObject {
 
     // MARK: - Workout Session Control
 
-    func startWorkout(athleteId: String) async throws {
+    func startCountdown(athleteId: String) {
         guard workoutState == .idle else { return }
+        workoutState = .countdown
+    }
+
+    func startWorkout(athleteId: String) async throws {
+        guard workoutState == .idle || workoutState == .countdown else { return }
 
         // Generate session ID
         sessionId = UUID().uuidString

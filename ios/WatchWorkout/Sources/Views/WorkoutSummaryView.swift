@@ -3,8 +3,6 @@ import WatchKit
 
 // MARK: - Design System (45mm base: 198×242 pt)
 
-/// Scale factor applied to all sizes for device proportionality.
-/// 41mm → 0.88, 44mm → 0.93, 45mm → 1.0, 49mm → 1.06
 private var scale: CGFloat {
     let w = WKInterfaceDevice.current().screenBounds.width
     return w / 198.0
@@ -94,11 +92,9 @@ struct WorkoutSummaryView: View {
                 Spacer()
 
                 // ── Zone Bar ─────────────────────────────────────────────────
-                ZoneBar(
-                    avgZone: workoutManager.currentZone
-                )
-                .frame(height: sp(6))
-                .padding(.horizontal, sp(12))
+                ZoneBar(avgZone: workoutManager.currentZone)
+                    .frame(height: sp(6))
+                    .padding(.horizontal, sp(12))
 
                 // ── Spacing: 8pt ─────────────────────────────────────────────
                 Spacer().frame(height: sp(8))
@@ -123,7 +119,6 @@ struct WorkoutSummaryView: View {
             }
         }
         .onAppear {
-            // Animate rings in with staggered delays
             withAnimation(.easeOut(duration: 0.8)) {
                 animatedMove = 0.85
             }
@@ -163,33 +158,21 @@ struct SummaryActivityRings: View {
 
     var body: some View {
         ZStack {
-            // Outer ring — Move (red)
             Circle()
                 .trim(from: 0, to: max(0.001, moveProgress))
-                .stroke(
-                    ringMove,
-                    style: StrokeStyle(lineWidth: ringStroke, lineCap: .round)
-                )
+                .stroke(ringMove, style: StrokeStyle(lineWidth: ringStroke, lineCap: .round))
                 .rotationEffect(.degrees(-90))
                 .frame(width: outerRadius * 2, height: outerRadius * 2)
 
-            // Middle ring — Exercise (green)
             Circle()
                 .trim(from: 0, to: max(0.001, exerciseProgress))
-                .stroke(
-                    ringExercise,
-                    style: StrokeStyle(lineWidth: ringStroke, lineCap: .round)
-                )
+                .stroke(ringExercise, style: StrokeStyle(lineWidth: ringStroke, lineCap: .round))
                 .rotationEffect(.degrees(-90))
                 .frame(width: middleRadius * 2, height: middleRadius * 2)
 
-            // Inner ring — Stand (blue)
             Circle()
                 .trim(from: 0, to: max(0.001, standProgress))
-                .stroke(
-                    ringStand,
-                    style: StrokeStyle(lineWidth: ringStroke, lineCap: .round)
-                )
+                .stroke(ringStand, style: StrokeStyle(lineWidth: ringStroke, lineCap: .round))
                 .rotationEffect(.degrees(-90))
                 .frame(width: innerRadius * 2, height: innerRadius * 2)
         }
@@ -206,7 +189,6 @@ struct SummaryStatsGrid: View {
 
     var body: some View {
         VStack(spacing: sp(6)) {
-            // Row 1: AVG BPM | MAX BPM
             HStack(spacing: 0) {
                 SummaryStat(value: "\(avgHeartRate)", label: "AVG", unit: "BPM")
                     .frame(maxWidth: .infinity)
@@ -218,7 +200,6 @@ struct SummaryStatsGrid: View {
             }
             .padding(.horizontal, sp(12))
 
-            // Row 2: KCAL | KM
             HStack(spacing: 0) {
                 SummaryStat(value: "\(Int(calories))", label: "KCAL", unit: "")
                     .frame(maxWidth: .infinity)
