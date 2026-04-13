@@ -4,7 +4,7 @@ import Combine
 
 // MARK: - HealthKitManager
 
-final class HealthKitManager: NSObject, ObservableObject {
+final class HealthKitManager: NSObject, ObservableObject { 
     static let shared = HealthKitManager()
 
     // MARK: - Published
