@@ -20,5 +20,12 @@
 	<string>1</string>
 	<key>NSHealthShareUsageDescription</key>
 	<string>TeamPulse needs access to your health data to track workouts, heart rate, calories, and recovery metrics from Apple Watch.</string>
+	<key>NSHealthUpdateUsageDescription</key>
+	<string>TeamPulse needs to save workout data to your Health app.</string>
+	<key>UIBackgroundModes</key>
+	<array>
+		<string>processing</string>
+		<string>remote-notification</string>
+	</array>
 </dict>
 </plist>
