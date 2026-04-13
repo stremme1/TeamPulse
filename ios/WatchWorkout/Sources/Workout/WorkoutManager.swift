@@ -256,14 +256,7 @@ final class WorkoutManager: NSObject, ObservableObject {
 
         // Start session
         sessionStartDate = Date()
-        try workoutSession?.startActivity(with: sessionStartDate!)
-
-        // Begin collecting data
-        let predicate = HKQuery.predicateForSamples(
-            withStart: sessionStartDate,
-            end: nil,
-            options: .strictStartDate
-        )
+        workoutSession?.startActivity(with: sessionStartDate!)
 
         try await workoutBuilder?.beginCollection(at: sessionStartDate!)
 
@@ -316,7 +309,7 @@ final class WorkoutManager: NSObject, ObservableObject {
         // End the HK workout
         try await workoutBuilder?.endCollection(at: endDate)
 
-        let workout = try await workoutBuilder?.finishWorkout()
+        _ = try await workoutBuilder?.finishWorkout()
 
         // Calculate duration
         let duration = workoutSession?.endDate.map { Int($0.timeIntervalSince(sessionStartDate ?? endDate)) } ?? elapsedSeconds
@@ -438,19 +431,22 @@ final class WorkoutManager: NSObject, ObservableObject {
     func fetchTodayActivityRings() async {
         let calendar = Calendar.current
         let now = Date()
-        var startComponents = calendar.dateComponents([.year, .month, .day], from: now)
-        startComponents.hour = 0
-        startComponents.minute = 0
-        startComponents.second = 0
-        guard let startDate = calendar.date(from: startComponents) else { return }
-        let endDate = now
+        var dateComponents = calendar.dateComponents([.era, .year, .month, .day], from: now)
+        dateComponents.calendar = calendar
+
+        let predicate = HKQuery.predicateForActivitySummary(with: dateComponents)
+        let store = healthStore
 
         return await withCheckedContinuation { continuation in
-            let query = HKActivitySummaryQuery { [weak self] _, summaries, error in
-                guard error == nil, let summaries = summaries, !summaries.isEmpty else {
+            let query = HKActivitySummaryQuery(predicate: predicate) { [weak self] _, summaries, error in
+                guard error == nil, let summaries, !summaries.isEmpty else {
                     continuation.resume()
                     return
                 }
+
+                let kcal = HKUnit.kilocalorie()
+                let minute = HKUnit.minute()
+                let hour = HKUnit.hour()
 
                 var moveCal: Double = 0
                 var moveGoal: Double = 0
@@ -460,12 +456,12 @@ final class WorkoutManager: NSObject, ObservableObject {
                 var standGoal: Int = 0
 
                 for summary in summaries {
-                    moveCal += summary.activeEnergyBurned.doubleValue(for: .kilocalorie())
-                    moveGoal += summary.activeEnergyGoal.doubleValue(for: .kilocalorie())
-                    exerciseMin += Int(summary.appleExerciseTime.doubleValue(for: .minute()))
-                    exerciseGoal += Int(summary.appleExerciseGoal.doubleValue(for: .minute()))
-                    standHr += Int(summary.appleStandHours.doubleValue(for: .hour()))
-                    standGoal += Int(summary.appleStandGoal.doubleValue(for: .hour()))
+                    moveCal += summary.activeEnergyBurned.doubleValue(for: kcal)
+                    moveGoal += summary.activeEnergyBurnedGoal.doubleValue(for: kcal)
+                    exerciseMin += Int(summary.appleExerciseTime.doubleValue(for: minute))
+                    exerciseGoal += Int(summary.appleExerciseTimeGoal.doubleValue(for: minute))
+                    standHr += Int(summary.appleStandHours.doubleValue(for: hour))
+                    standGoal += Int(summary.appleStandHoursGoal.doubleValue(for: hour))
                 }
 
                 let data = ActivityRingData(
@@ -483,9 +479,7 @@ final class WorkoutManager: NSObject, ObservableObject {
                 continuation.resume()
             }
 
-            query.startDate = startDate
-            query.endDate = endDate
-            self.healthStore.execute(query)
+            store.execute(query)
         }
     }
 
