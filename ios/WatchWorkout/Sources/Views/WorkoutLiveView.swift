@@ -50,7 +50,8 @@ struct WorkoutActiveContainer: View {
             .tag(2)
         }
         .tabViewStyle(.verticalPage)
-        .indexViewStyle(.pageBackgroundView)
+        // `.pageBackgroundView` is not available on watchOS `IndexViewStyle`; dots still show with default page index style.
+        .indexViewStyle(.page)
     }
 }
 

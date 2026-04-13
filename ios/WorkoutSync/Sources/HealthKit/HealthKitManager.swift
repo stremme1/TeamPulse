@@ -4,7 +4,7 @@ import Combine
 
 // MARK: - HealthKitManager
 
-final class HealthKitManager: NSObject, ObservableObject { 
+final class HealthKitManager: NSObject, ObservableObject {
     static let shared = HealthKitManager()
 
     // MARK: - Published
@@ -48,9 +48,7 @@ final class HealthKitManager: NSObject, ObservableObject {
         if let vo2Max = HKQuantityType.quantityType(forIdentifier: .vo2Max) {
             types.insert(vo2Max)
         }
-        if let workout = HKObjectType.workoutType() as? HKObjectType {
-            types.insert(workout)
-        }
+        types.insert(HKObjectType.workoutType())
         if let activeEnergy = HKQuantityType.quantityType(forIdentifier: .activeEnergyBurned) {
             types.insert(activeEnergy)
         }
@@ -229,6 +227,8 @@ final class HealthKitManager: NSObject, ObservableObject {
             options: .strictStartDate
         )
 
+        let hkUnit = unit(for: type)
+        let store = healthStore
         return await withCheckedContinuation { continuation in
             let query = HKSampleQuery(
                 sampleType: type,
@@ -242,11 +242,11 @@ final class HealthKitManager: NSObject, ObservableObject {
                     return
                 }
 
-                let value = sample.doubleValue(for: self.unit(for: type))
+                let value = sample.doubleValue(for: hkUnit)
                 continuation.resume(returning: value)
             }
 
-            self.healthStore.execute(query)
+            store.execute(query)
         }
     }
 
@@ -276,6 +276,7 @@ final class HealthKitManager: NSObject, ObservableObject {
 
         let predicate = HKQuery.predicateForSamples(withStart: startOfDay, end: endOfDay, options: .strictStartDate)
 
+        let store = healthStore
         return await withCheckedContinuation { continuation in
             let query = HKSampleQuery(
                 sampleType: sleepType,
@@ -322,7 +323,7 @@ final class HealthKitManager: NSObject, ObservableObject {
                 continuation.resume(returning: result)
             }
 
-            self.healthStore.execute(query)
+            store.execute(query)
         }
     }
 
