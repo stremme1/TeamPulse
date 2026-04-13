@@ -1,0 +1,1596 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Workout System — Live Dashboard</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+  <style>
+    /* ── Reset & Base ─────────────────────────────────────── */
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --bg-deep:     #080A0D;
+      --bg-surface:  #0D1117;
+      --bg-elevated: #161B22;
+      --bg-hover:    #1C2128;
+      --border:      #21262D;
+      --border-muted:#161B22;
+      --text-primary:#E6EDF3;
+      --text-secondary:#7D8590;
+      --text-muted:  #484F58;
+      --accent:      #58A6FF;
+      --accent-dim:  #1F3A5F;
+      --zone-1:      #3B82F6;
+      --zone-2:      #22C55E;
+      --zone-3:      #EAB308;
+      --zone-4:      #F97316;
+      --zone-5:      #EF4444;
+      --success:     #22C55E;
+      --warning:     #EAB308;
+      --error:       #EF4444;
+      --font-mono:   'JetBrains Mono', 'SF Mono', 'Consolas', monospace;
+      --font-ui:     'Inter', system-ui, -apple-system, sans-serif;
+    }
+
+    html { font-size: 13px; scroll-behavior: smooth; }
+    body {
+      font-family: var(--font-ui);
+      background: var(--bg-deep);
+      color: var(--text-primary);
+      min-height: 100vh;
+      line-height: 1.5;
+      -webkit-font-smoothing: antialiased;
+      /* Subtle grid pattern */
+      background-image:
+        linear-gradient(var(--border-muted) 1px, transparent 1px),
+        linear-gradient(90deg, var(--border-muted) 1px, transparent 1px);
+      background-size: 32px 32px;
+      background-position: center center;
+    }
+
+    /* ── Scrollbar ────────────────────────────────────────── */
+    ::-webkit-scrollbar { width: 6px; height: 6px; }
+    ::-webkit-scrollbar-track { background: transparent; }
+    ::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
+    ::-webkit-scrollbar-thumb:hover { background: var(--text-muted); }
+
+    ::selection { background: var(--accent-dim); color: var(--text-primary); }
+
+    /* ── Layout ───────────────────────────────────────────── */
+    .container {
+      max-width: 1280px;
+      margin: 0 auto;
+      padding: 0 20px 40px;
+    }
+
+    /* ── Header ───────────────────────────────────────────── */
+    .header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 16px 0;
+      border-bottom: 1px solid var(--border);
+      margin-bottom: 20px;
+      position: sticky;
+      top: 0;
+      background: var(--bg-deep);
+      z-index: 100;
+      backdrop-filter: blur(8px);
+    }
+
+    .wordmark {
+      font-family: var(--font-mono);
+      font-size: 11px;
+      font-weight: 600;
+      letter-spacing: 0.2em;
+      color: var(--text-primary);
+      text-transform: uppercase;
+    }
+
+    .header-center {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+
+    .connection-badge {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      padding: 5px 12px;
+      background: var(--bg-surface);
+      border: 1px solid var(--border);
+      border-radius: 20px;
+      font-size: 12px;
+    }
+
+    .conn-dot {
+      width: 7px; height: 7px;
+      border-radius: 50%;
+      flex-shrink: 0;
+    }
+    .conn-dot.connected { background: var(--success); box-shadow: 0 0 6px var(--success); animation: pulse-glow 2s infinite; }
+    .conn-dot.reconnecting { background: var(--warning); animation: blink 1s infinite; }
+    .conn-dot.disconnected { background: var(--error); }
+
+    @keyframes pulse-glow {
+      0%, 100% { opacity: 1; }
+      50% { opacity: 0.5; }
+    }
+    @keyframes blink {
+      0%, 100% { opacity: 1; }
+      50% { opacity: 0.2; }
+    }
+
+    .session-badge {
+      font-family: var(--font-mono);
+      font-size: 11px;
+      color: var(--text-secondary);
+      padding: 4px 10px;
+      background: var(--bg-elevated);
+      border-radius: 4px;
+      border: 1px solid var(--border);
+    }
+
+    .header-right {
+      display: flex;
+      align-items: center;
+      gap: 16px;
+    }
+
+    .clock {
+      font-family: var(--font-mono);
+      font-size: 12px;
+      color: var(--text-secondary);
+      letter-spacing: 0.05em;
+    }
+
+    /* ── Status Bar ───────────────────────────────────────── */
+    .status-bar {
+      display: none;
+      padding: 10px 16px;
+      border-radius: 6px;
+      margin-bottom: 16px;
+      font-size: 12px;
+      align-items: center;
+      gap: 10px;
+    }
+    .status-bar.visible { display: flex; }
+    .status-bar.warning { background: rgba(234,179,8,0.1); border: 1px solid rgba(234,179,8,0.3); color: var(--warning); }
+    .status-bar.error { background: rgba(239,68,68,0.1); border: 1px solid rgba(239,68,68,0.3); color: var(--error); }
+
+    /* ── Setup Panel ──────────────────────────────────────── */
+    .setup-panel {
+      background: var(--bg-surface);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 32px;
+      max-width: 480px;
+      margin: 40px auto;
+      text-align: center;
+    }
+
+    .setup-title {
+      font-size: 17px;
+      font-weight: 600;
+      margin-bottom: 8px;
+      color: var(--text-primary);
+    }
+
+    .setup-subtitle {
+      font-size: 12px;
+      color: var(--text-secondary);
+      margin-bottom: 24px;
+      line-height: 1.6;
+    }
+
+    .setup-form {
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+    }
+
+    .input-group {
+      text-align: left;
+    }
+
+    .input-label {
+      display: block;
+      font-size: 11px;
+      font-weight: 500;
+      color: var(--text-secondary);
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      margin-bottom: 6px;
+    }
+
+    .input-field {
+      width: 100%;
+      padding: 10px 12px;
+      background: var(--bg-deep);
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      color: var(--text-primary);
+      font-family: var(--font-mono);
+      font-size: 13px;
+      outline: none;
+      transition: border-color 150ms;
+    }
+    .input-field:focus { border-color: var(--accent); }
+    .input-field::placeholder { color: var(--text-muted); }
+
+    .btn-row {
+      display: flex;
+      gap: 10px;
+      margin-top: 8px;
+    }
+
+    .btn {
+      flex: 1;
+      padding: 10px 16px;
+      border: none;
+      border-radius: 6px;
+      font-family: var(--font-ui);
+      font-size: 12px;
+      font-weight: 500;
+      cursor: pointer;
+      transition: all 150ms;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 6px;
+    }
+
+    .btn-primary {
+      background: var(--accent);
+      color: #000;
+    }
+    .btn-primary:hover { background: #79B8FF; }
+
+    .btn-secondary {
+      background: var(--bg-elevated);
+      color: var(--text-primary);
+      border: 1px solid var(--border);
+    }
+    .btn-secondary:hover { background: var(--bg-hover); border-color: var(--text-muted); }
+
+    .btn-ghost {
+      background: transparent;
+      color: var(--text-secondary);
+      border: 1px solid var(--border);
+    }
+    .btn-ghost:hover { color: var(--text-primary); border-color: var(--text-muted); }
+
+    .setup-divider {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      margin: 8px 0;
+      color: var(--text-muted);
+      font-size: 11px;
+    }
+    .setup-divider::before, .setup-divider::after {
+      content: '';
+      flex: 1;
+      height: 1px;
+      background: var(--border);
+    }
+
+    /* ── Dashboard Grid ──────────────────────────────────── */
+    .dashboard { display: none; }
+    .dashboard.active { display: block; }
+
+    .dashboard-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr 1fr;
+      gap: 12px;
+      margin-bottom: 12px;
+    }
+
+    /* ── Hero Panel ───────────────────────────────────────── */
+    .hero-panel {
+      grid-column: 1 / -1;
+      background: var(--bg-surface);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 24px;
+      display: grid;
+      grid-template-columns: auto 1fr auto;
+      gap: 32px;
+      align-items: center;
+    }
+
+    .hr-hero {
+      text-align: center;
+      min-width: 180px;
+    }
+
+    .hr-value {
+      font-family: var(--font-mono);
+      font-size: 72px;
+      font-weight: 600;
+      line-height: 1;
+      letter-spacing: -2px;
+      transition: color 300ms;
+    }
+
+    .hr-unit {
+      font-family: var(--font-mono);
+      font-size: 18px;
+      color: var(--text-secondary);
+      margin-top: 2px;
+    }
+
+    .hr-meta {
+      margin-top: 12px;
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+    }
+
+    .zone-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      padding: 4px 10px;
+      border-radius: 4px;
+      font-size: 11px;
+      font-weight: 600;
+      letter-spacing: 0.06em;
+      text-transform: uppercase;
+      transition: background-color 300ms;
+    }
+
+    .zone-badge .zone-dot {
+      width: 6px; height: 6px;
+      border-radius: 50%;
+    }
+
+    .elapsed-time {
+      font-family: var(--font-mono);
+      font-size: 13px;
+      color: var(--text-secondary);
+      margin-top: 4px;
+    }
+
+    /* ── HR Trend Chart ───────────────────────────────────── */
+    .hr-trend-container {
+      flex: 1;
+      min-width: 0;
+      height: 120px;
+      position: relative;
+    }
+
+    #hr-trend-canvas {
+      width: 100%;
+      height: 100%;
+      display: block;
+    }
+
+    .hr-trend-labels {
+      display: flex;
+      justify-content: space-between;
+      margin-top: 4px;
+      font-family: var(--font-mono);
+      font-size: 10px;
+      color: var(--text-muted);
+    }
+
+    /* ── Session Controls ─────────────────────────────────── */
+    .session-controls {
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+      min-width: 140px;
+    }
+
+    .workout-type-label {
+      font-size: 11px;
+      color: var(--text-secondary);
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      text-align: center;
+    }
+
+    .workout-type-name {
+      font-size: 15px;
+      font-weight: 600;
+      text-align: center;
+      text-transform: capitalize;
+    }
+
+    .stats-mini {
+      margin-top: 12px;
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+      font-family: var(--font-mono);
+      font-size: 12px;
+    }
+
+    .stats-mini-row {
+      display: flex;
+      justify-content: space-between;
+      gap: 16px;
+    }
+
+    .stats-mini-label { color: var(--text-muted); }
+    .stats-mini-value { color: var(--text-primary); }
+
+    /* ── Metric Cards ─────────────────────────────────────── */
+    .metric-card {
+      background: var(--bg-surface);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 16px;
+    }
+
+    .metric-label {
+      font-size: 10px;
+      font-weight: 500;
+      color: var(--text-muted);
+      text-transform: uppercase;
+      letter-spacing: 0.12em;
+      margin-bottom: 8px;
+    }
+
+    .metric-value {
+      font-family: var(--font-mono);
+      font-size: 28px;
+      font-weight: 600;
+      color: var(--text-primary);
+      line-height: 1;
+    }
+
+    .metric-unit {
+      font-size: 13px;
+      color: var(--text-secondary);
+      font-weight: 400;
+      margin-left: 4px;
+    }
+
+    .metric-sub {
+      font-size: 11px;
+      color: var(--text-muted);
+      margin-top: 4px;
+      font-family: var(--font-mono);
+    }
+
+    /* ── Zone Bar ──────────────────────────────────────────── */
+    .zone-card {
+      background: var(--bg-surface);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 16px;
+    }
+
+    .zone-bar-container {
+      margin-top: 8px;
+    }
+
+    .zone-bar {
+      height: 8px;
+      border-radius: 4px;
+      overflow: hidden;
+      display: flex;
+      background: var(--bg-elevated);
+    }
+
+    .zone-bar-segment {
+      height: 100%;
+      transition: width 500ms ease-out;
+      min-width: 2px;
+    }
+
+    .zone-bar-legend {
+      margin-top: 12px;
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+    }
+
+    .zone-legend-row {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      font-size: 11px;
+    }
+
+    .zone-legend-left {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .zone-legend-dot {
+      width: 8px; height: 8px;
+      border-radius: 2px;
+      flex-shrink: 0;
+    }
+
+    .zone-legend-name {
+      color: var(--text-secondary);
+    }
+
+    .zone-legend-right {
+      font-family: var(--font-mono);
+      display: flex;
+      gap: 12px;
+    }
+
+    .zone-legend-pct { color: var(--text-primary); }
+    .zone-legend-time { color: var(--text-muted); font-size: 10px; }
+
+    /* ── Bottom Grid ──────────────────────────────────────── */
+    .bottom-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 12px;
+      margin-bottom: 12px;
+    }
+
+    /* ── Recovery Panel ───────────────────────────────────── */
+    .recovery-panel {
+      background: var(--bg-surface);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 20px;
+    }
+
+    .recovery-header {
+      font-size: 10px;
+      font-weight: 500;
+      color: var(--text-muted);
+      text-transform: uppercase;
+      letter-spacing: 0.12em;
+      margin-bottom: 16px;
+    }
+
+    .recovery-scores {
+      display: flex;
+      justify-content: space-around;
+      gap: 16px;
+    }
+
+    .score-ring {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .score-ring-svg {
+      width: 64px; height: 64px;
+    }
+
+    .score-ring-value {
+      font-family: var(--font-mono);
+      font-size: 18px;
+      font-weight: 600;
+    }
+
+    .score-ring-label {
+      font-size: 10px;
+      color: var(--text-muted);
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      text-align: center;
+    }
+
+    .sparkline-container {
+      margin-top: 16px;
+      padding-top: 16px;
+      border-top: 1px solid var(--border);
+    }
+
+    .sparkline-label {
+      font-size: 10px;
+      color: var(--text-muted);
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      margin-bottom: 8px;
+    }
+
+    #hrv-sparkline { width: 100%; height: 36px; display: block; }
+    .sparkline-values {
+      display: flex;
+      justify-content: space-between;
+      font-family: var(--font-mono);
+      font-size: 10px;
+      color: var(--text-muted);
+      margin-top: 4px;
+    }
+
+    .no-data {
+      text-align: center;
+      padding: 24px;
+      color: var(--text-muted);
+      font-size: 12px;
+    }
+
+    /* ── Session History ──────────────────────────────────── */
+    .history-panel {
+      background: var(--bg-surface);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 20px;
+    }
+
+    .history-header {
+      font-size: 10px;
+      font-weight: 500;
+      color: var(--text-muted);
+      text-transform: uppercase;
+      letter-spacing: 0.12em;
+      margin-bottom: 12px;
+    }
+
+    .history-list {
+      display: flex;
+      flex-direction: column;
+      gap: 0;
+    }
+
+    .history-row {
+      display: grid;
+      grid-template-columns: 100px 1fr auto;
+      gap: 16px;
+      align-items: center;
+      padding: 10px 0;
+      border-bottom: 1px solid var(--border-muted);
+      cursor: pointer;
+      transition: background-color 150ms;
+      border-radius: 4px;
+      padding-left: 4px;
+      padding-right: 4px;
+    }
+    .history-row:last-child { border-bottom: none; }
+    .history-row:hover { background: var(--bg-elevated); }
+
+    .history-date {
+      font-size: 12px;
+      color: var(--text-secondary);
+      font-family: var(--font-mono);
+    }
+
+    .history-meta {
+      display: flex;
+      gap: 16px;
+      font-family: var(--font-mono);
+      font-size: 12px;
+    }
+
+    .history-type {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+
+    .history-type-icon {
+      width: 16px; height: 16px;
+      opacity: 0.6;
+    }
+
+    .history-kpis {
+      display: flex;
+      gap: 12px;
+      font-family: var(--font-mono);
+      font-size: 11px;
+    }
+
+    .history-kpi {
+      display: flex;
+      flex-direction: column;
+      align-items: flex-end;
+      gap: 2px;
+    }
+
+    .history-kpi-val { color: var(--text-primary); }
+    .history-kpi-lbl { color: var(--text-muted); font-size: 9px; }
+
+    .history-expand {
+      grid-column: 1 / -1;
+      display: none;
+      padding: 12px 4px;
+      font-size: 11px;
+    }
+    .history-expand.open { display: block; }
+
+    .zone-expand-row {
+      display: flex;
+      gap: 16px;
+      margin-top: 8px;
+    }
+
+    .zone-expand-item {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+
+    .zone-expand-dot { width: 8px; height: 8px; border-radius: 2px; }
+    .zone-expand-lbl { color: var(--text-secondary); font-size: 11px; }
+    .zone-expand-pct { font-family: var(--font-mono); font-size: 11px; color: var(--text-primary); }
+
+    /* ── Responsive ───────────────────────────────────────── */
+    @media (max-width: 900px) {
+      .hero-panel {
+        grid-template-columns: 1fr;
+        text-align: center;
+      }
+      .hr-hero { display: flex; align-items: baseline; gap: 8px; justify-content: center; }
+      .hr-value { font-size: 56px; }
+      .session-controls { display: none; }
+      .dashboard-grid { grid-template-columns: 1fr 1fr; }
+      .bottom-grid { grid-template-columns: 1fr; }
+    }
+
+    @media (max-width: 600px) {
+      .header { flex-wrap: wrap; gap: 12px; }
+      .header-center { order: 3; width: 100%; justify-content: center; }
+      .dashboard-grid { grid-template-columns: 1fr; }
+      .hero-panel { padding: 16px; }
+      .hr-value { font-size: 48px; }
+    }
+  </style>
+</head>
+<body>
+
+<!-- ── Header ─────────────────────────────────────────────────── -->
+<header class="header">
+  <div class="wordmark">Workout System</div>
+
+  <div class="header-center">
+    <div class="connection-badge">
+      <span class="conn-dot disconnected" id="conn-dot"></span>
+      <span id="conn-label">Disconnected</span>
+    </div>
+    <span class="session-badge" id="session-badge" style="display:none">
+      <span id="session-id-display">—</span>
+    </span>
+  </div>
+
+  <div class="header-right">
+    <span class="clock" id="clock">--:--:--</span>
+  </div>
+</header>
+
+<!-- ── Status Bar ─────────────────────────────────────────────── -->
+<div class="status-bar" id="status-bar">
+  <svg width="14" height="14" viewBox="0 0 14 14" fill="none">
+    <path d="M7 0.5a6.5 6.5 0 100 13 6.5 6.5 0 000-13zM7 4a.75.75 0 01.75.75v3.5a.75.75 0 01-1.5 0v-3.5A.75.75 0 017 4zm0 7a.875.875 0 110-1.75.875.875 0 010 1.75z" fill="currentColor"/>
+  </svg>
+  <span id="status-text"></span>
+</div>
+
+<div class="container">
+
+  <!-- ── Setup Panel ─────────────────────────────────────────── -->
+  <div class="setup-panel" id="setup-panel">
+    <div class="setup-title">Connect to Session</div>
+    <div class="setup-subtitle">
+      Enter your session credentials to stream live workout data.<br>
+      Or start demo mode to explore the dashboard.
+    </div>
+    <div class="setup-form">
+      <div class="input-group">
+        <label class="input-label">Session ID</label>
+        <input class="input-field" type="text" id="input-session" placeholder="e.g. abc-123-def">
+      </div>
+      <div class="input-group">
+        <label class="input-label">Athlete ID</label>
+        <input class="input-field" type="text" id="input-athlete" placeholder="e.g. athlete-001">
+      </div>
+      <div class="btn-row">
+        <button class="btn btn-primary" id="btn-connect">
+          <svg width="12" height="12" viewBox="0 0 12 12" fill="none">
+            <path d="M6 0a6 6 0 100 12A6 6 0 006 0zm.75 3.75v2.5l2 1.25-.5.866L5.5 7.5V3.75h1.25z" fill="currentColor"/>
+          </svg>
+          Connect
+        </button>
+        <button class="btn btn-ghost" id="btn-demo">
+          Demo Mode
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ── Dashboard ───────────────────────────────────────────── -->
+  <div class="dashboard" id="dashboard">
+
+    <!-- Hero: Heart Rate + Trend -->
+    <div class="hero-panel">
+      <div class="hr-hero">
+        <div class="hr-value" id="hr-value" style="color: var(--zone-3)">—</div>
+        <div class="hr-unit">bpm</div>
+        <div class="hr-meta">
+          <span class="zone-badge" id="zone-badge" style="background: rgba(234,179,8,0.15); color: var(--zone-3)">
+            <span class="zone-dot" style="background: var(--zone-3)"></span>
+            <span id="zone-name">—</span>
+          </span>
+          <span class="elapsed-time" id="elapsed-time">00:00</span>
+        </div>
+      </div>
+
+      <div class="hr-trend-container">
+        <canvas id="hr-trend-canvas"></canvas>
+        <div class="hr-trend-labels">
+          <span id="chart-t-start">-60s</span>
+          <span id="chart-t-mid">-30s</span>
+          <span>now</span>
+        </div>
+      </div>
+
+      <div class="session-controls">
+        <div class="workout-type-label">Workout</div>
+        <div class="workout-type-name" id="workout-type-name">Running</div>
+        <div class="stats-mini">
+          <div class="stats-mini-row">
+            <span class="stats-mini-label">Avg HR</span>
+            <span class="stats-mini-value" id="stat-avg-hr">—</span>
+          </div>
+          <div class="stats-mini-row">
+            <span class="stats-mini-label">Max HR</span>
+            <span class="stats-mini-value" id="stat-max-hr">—</span>
+          </div>
+          <div class="stats-mini-row">
+            <span class="stats-mini-label">Min HR</span>
+            <span class="stats-mini-value" id="stat-min-hr">—</span>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Metrics Row -->
+    <div class="dashboard-grid">
+      <div class="metric-card">
+        <div class="metric-label">Calories</div>
+        <div class="metric-value">
+          <span id="metric-cal">0</span>
+          <span class="metric-unit">kcal</span>
+        </div>
+      </div>
+      <div class="metric-card">
+        <div class="metric-label">Distance</div>
+        <div class="metric-value">
+          <span id="metric-dist">0.00</span>
+          <span class="metric-unit">km</span>
+        </div>
+      </div>
+      <div class="zone-card">
+        <div class="metric-label">Time in Zones</div>
+        <div class="zone-bar-container">
+          <div class="zone-bar" id="zone-bar">
+            <div class="zone-bar-segment" id="zseg-1" style="width:0%; background: var(--zone-1)"></div>
+            <div class="zone-bar-segment" id="zseg-2" style="width:0%; background: var(--zone-2)"></div>
+            <div class="zone-bar-segment" id="zseg-3" style="width:0%; background: var(--zone-3)"></div>
+            <div class="zone-bar-segment" id="zseg-4" style="width:0%; background: var(--zone-4)"></div>
+            <div class="zone-bar-segment" id="zseg-5" style="width:0%; background: var(--zone-5)"></div>
+          </div>
+          <div class="zone-bar-legend" id="zone-legend">
+            <!-- Populated by JS -->
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Bottom Row -->
+    <div class="bottom-grid">
+      <!-- Recovery Panel -->
+      <div class="recovery-panel">
+        <div class="recovery-header">Recovery Metrics</div>
+        <div class="recovery-scores">
+          <div class="score-ring">
+            <svg class="score-ring-svg" viewBox="0 0 64 64" id="ring-recovery">
+              <circle cx="32" cy="32" r="27" fill="none" stroke="var(--border)" stroke-width="4"/>
+              <circle cx="32" cy="32" r="27" fill="none" stroke="var(--zone-2)" stroke-width="4"
+                stroke-dasharray="169.6" stroke-dashoffset="169.6"
+                stroke-linecap="round"
+                transform="rotate(-90 32 32)" id="ring-recovery-arc"/>
+              <text x="32" y="36" text-anchor="middle" fill="var(--text-primary)"
+                font-family="var(--font-mono)" font-size="14" font-weight="600"
+                id="ring-recovery-val">—</text>
+            </svg>
+            <span class="score-ring-label">Recovery</span>
+          </div>
+          <div class="score-ring">
+            <svg class="score-ring-svg" viewBox="0 0 64 64" id="ring-fatigue">
+              <circle cx="32" cy="32" r="27" fill="none" stroke="var(--border)" stroke-width="4"/>
+              <circle cx="32" cy="32" r="27" fill="none" stroke="var(--zone-4)" stroke-width="4"
+                stroke-dasharray="169.6" stroke-dashoffset="169.6"
+                stroke-linecap="round"
+                transform="rotate(-90 32 32)" id="ring-fatigue-arc"/>
+              <text x="32" y="36" text-anchor="middle" fill="var(--text-primary)"
+                font-family="var(--font-mono)" font-size="14" font-weight="600"
+                id="ring-fatigue-val">—</text>
+            </svg>
+            <span class="score-ring-label">Fatigue</span>
+          </div>
+          <div class="score-ring">
+            <svg class="score-ring-svg" viewBox="0 0 64 64" id="ring-readiness">
+              <circle cx="32" cy="32" r="27" fill="none" stroke="var(--border)" stroke-width="4"/>
+              <circle cx="32" cy="32" r="27" fill="none" stroke="var(--accent)" stroke-width="4"
+                stroke-dasharray="169.6" stroke-dashoffset="169.6"
+                stroke-linecap="round"
+                transform="rotate(-90 32 32)" id="ring-readiness-arc"/>
+              <text x="32" y="36" text-anchor="middle" fill="var(--text-primary)"
+                font-family="var(--font-mono)" font-size="14" font-weight="600"
+                id="ring-readiness-val">—</text>
+            </svg>
+            <span class="score-ring-label">Readiness</span>
+          </div>
+        </div>
+        <div class="sparkline-container" id="hrv-container">
+          <div class="sparkline-label">HRV — Last 7 Days</div>
+          <svg id="hrv-sparkline" viewBox="0 0 280 36" preserveAspectRatio="none">
+            <polyline id="hrv-poly" points="" fill="none" stroke="var(--accent)" stroke-width="1.5" opacity="0.7"/>
+          </svg>
+          <div class="sparkline-values" id="hrv-values">
+            <!-- Populated by JS -->
+          </div>
+        </div>
+      </div>
+
+      <!-- Session History -->
+      <div class="history-panel">
+        <div class="history-header">Session History</div>
+        <div class="history-list" id="history-list">
+          <div class="no-data">No completed sessions yet</div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+/* ─────────────────────────────────────────────────────────────────────────────
+   WORKOUT SYSTEM DASHBOARD — JavaScript
+   ─────────────────────────────────────────────────────────────────────────── */
+
+// ── Configuration ─────────────────────────────────────────────────────────────
+const CONFIG = {
+  backendUrl: 'ws://localhost:8000/ws',
+  httpUrl: 'http://localhost:8000',
+  demoInterval: 1000,
+  chartWindowSeconds: 60,
+  chartMaxPoints: 60,
+  maxReconnectDelay: 30000,
+};
+
+const ZONES = [
+  { key: 'zone_1', name: 'Recovery', color: 'var(--zone-1)', min: 0, max: 114 },
+  { key: 'zone_2', name: 'Aerobic', color: 'var(--zone-2)', min: 114, max: 133 },
+  { key: 'zone_3', name: 'Tempo', color: 'var(--zone-3)', min: 133, max: 152 },
+  { key: 'zone_4', name: 'Threshold', color: 'var(--zone-4)', min: 152, max: 171 },
+  { key: 'zone_5', name: 'VO2 Max', color: 'var(--zone-5)', min: 171, max: 999 },
+];
+
+const WORKOUT_ICONS = {
+  running: `<svg viewBox="0 0 16 16" fill="none"><circle cx="8" cy="3" r="2" stroke="currentColor" stroke-width="1.2"/><path d="M5 14l2-4 2 2 3-5" stroke="currentColor" stroke-width="1.2" stroke-linecap="round" stroke-linejoin="round"/></svg>`,
+  cycling: `<svg viewBox="0 0 16 16" fill="none"><circle cx="4" cy="11" r="2.5" stroke="currentColor" stroke-width="1.2"/><circle cx="12" cy="11" r="2.5" stroke="currentColor" stroke-width="1.2"/><path d="M4 11h3l2-4h2" stroke="currentColor" stroke-width="1.2" stroke-linecap="round"/></svg>`,
+  strength: `<svg viewBox="0 0 16 16" fill="none"><path d="M2 8h2M12 8h2M4 6v4M12 6v4M6 7l4 2" stroke="currentColor" stroke-width="1.2" stroke-linecap="round"/></svg>`,
+  default: `<svg viewBox="0 0 16 16" fill="none"><circle cx="8" cy="8" r="5" stroke="currentColor" stroke-width="1.2"/><path d="M8 5v3l2 1" stroke="currentColor" stroke-width="1.2" stroke-linecap="round"/></svg>`,
+};
+
+// ── State ─────────────────────────────────────────────────────────────────────
+const state = {
+  ws: null,
+  sessionId: null,
+  athleteId: null,
+  connected: false,
+  reconnectAttempts: 0,
+  reconnectTimer: null,
+  demoMode: false,
+  demoInterval: null,
+  sessionStartTime: null,
+  hrHistory: [],       // { ts, hr, zone }
+  zoneCounters: { zone_1: 0, zone_2: 0, zone_3: 0, zone_4: 0, zone_5: 0 },
+  cumulativeCal: 0,
+  cumulativeDist: 0,
+  currentHr: null,
+  currentZone: null,
+  avgHr: null,
+  maxHr: null,
+  minHr: null,
+};
+
+// ── Utility ───────────────────────────────────────────────────────────────────
+function getZone(hr) {
+  for (const z of ZONES) {
+    if (hr >= z.min && hr < z.max) return z;
+  }
+  return ZONES[4];
+}
+
+function getZoneColor(zoneKey) {
+  const z = ZONES.find(z => z.key === zoneKey);
+  return z ? z.color : 'var(--text-muted)';
+}
+
+function formatDuration(seconds) {
+  const m = Math.floor(seconds / 60);
+  const s = seconds % 60;
+  return `${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')}`;
+}
+
+function formatDate(isoStr) {
+  const d = new Date(isoStr);
+  return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+}
+
+// ── Clock ──────────────────────────────────────────────────────────────────────
+function updateClock() {
+  const now = new Date();
+  document.getElementById('clock').textContent = now.toLocaleTimeString('en-US', {
+    hour12: false, hour: '2-digit', minute: '2-digit', second: '2-digit'
+  });
+}
+setInterval(updateClock, 1000);
+updateClock();
+
+// ── Canvas Chart ───────────────────────────────────────────────────────────────
+const canvas = document.getElementById('hr-trend-canvas');
+const ctx = canvas.getContext('2d');
+
+function resizeCanvas() {
+  const dpr = window.devicePixelRatio || 1;
+  const rect = canvas.getBoundingClientRect();
+  canvas.width = rect.width * dpr;
+  canvas.height = rect.height * dpr;
+  ctx.scale(dpr, dpr);
+  drawChart();
+}
+
+function drawChart() {
+  const rect = canvas.getBoundingClientRect();
+  const W = rect.width, H = rect.height;
+
+  ctx.clearRect(0, 0, W, H);
+
+  const data = state.hrHistory.slice(-CONFIG.chartMaxPoints);
+  if (data.length < 2) return;
+
+  // Find HR range
+  const hrs = data.map(d => d.hr);
+  const minH = Math.min(...hrs) - 5;
+  const maxH = Math.max(...hrs) + 5;
+  const range = maxH - minH || 10;
+  const pad = 10;
+
+  // Grid lines
+  ctx.strokeStyle = 'rgba(33, 38, 45, 0.8)';
+  ctx.lineWidth = 1;
+  const gridCount = 4;
+  for (let i = 0; i <= gridCount; i++) {
+    const y = pad + (H - pad * 2) * (i / gridCount);
+    ctx.beginPath();
+    ctx.moveTo(0, y);
+    ctx.lineTo(W, y);
+    ctx.stroke();
+    // Label
+    const hrLabel = Math.round(maxH - (maxH - minH) * (i / gridCount));
+    ctx.fillStyle = 'var(--text-muted)';
+    ctx.font = '9px JetBrains Mono, monospace';
+    ctx.fillText(hrLabel, 3, y - 2);
+  }
+
+  // Draw HR line segments
+  const step = W / (CONFIG.chartMaxPoints - 1);
+  const offset = Math.max(0, CONFIG.chartMaxPoints - data.length);
+
+  for (let i = 1; i < data.length; i++) {
+    const x0 = (offset + i - 1) * step;
+    const x1 = (offset + i) * step;
+    const y0 = pad + (H - pad * 2) * (1 - (data[i - 1].hr - minH) / range);
+    const y1 = pad + (H - pad * 2) * (1 - (data[i].hr - minH) / range);
+
+    ctx.strokeStyle = getZoneColor(data[i].zone);
+    ctx.lineWidth = 2;
+    ctx.lineCap = 'round';
+    ctx.beginPath();
+    ctx.moveTo(x0, y0);
+    ctx.lineTo(x1, y1);
+    ctx.stroke();
+  }
+
+  // Current HR dot
+  const last = data[data.length - 1];
+  const dotX = (offset + data.length - 1) * step;
+  const dotY = pad + (H - pad * 2) * (1 - (last.hr - minH) / range);
+  ctx.beginPath();
+  ctx.arc(dotX, dotY, 4, 0, Math.PI * 2);
+  ctx.fillStyle = getZoneColor(last.zone);
+  ctx.fill();
+  ctx.beginPath();
+  ctx.arc(dotX, dotY, 6, 0, Math.PI * 2);
+  ctx.strokeStyle = getZoneColor(last.zone);
+  ctx.lineWidth = 1;
+  ctx.globalAlpha = 0.3;
+  ctx.stroke();
+  ctx.globalAlpha = 1;
+}
+
+// ── Zone Bar ──────────────────────────────────────────────────────────────────
+function updateZoneBar() {
+  const total = Object.values(state.zoneCounters).reduce((a, b) => a + b, 0) || 1;
+
+  for (let i = 1; i <= 5; i++) {
+    const key = `zone_${i}`;
+    const pct = (state.zoneCounters[key] / total) * 100;
+    const el = document.getElementById(`zseg-${i}`);
+    if (el) el.style.width = pct.toFixed(1) + '%';
+  }
+
+  // Legend
+  const legend = document.getElementById('zone-legend');
+  legend.innerHTML = ZONES.map(z => {
+    const count = state.zoneCounters[z.key] || 0;
+    const pct = ((count / total) * 100).toFixed(1);
+    const time = formatDuration(count);
+    return `
+      <div class="zone-legend-row">
+        <div class="zone-legend-left">
+          <span class="zone-legend-dot" style="background:${z.color}"></span>
+          <span class="zone-legend-name">${z.name}</span>
+        </div>
+        <div class="zone-legend-right">
+          <span class="zone-legend-pct">${pct}%</span>
+          <span class="zone-legend-time">${time}</span>
+        </div>
+      </div>`;
+  }).join('');
+}
+
+// ── Ring Score ─────────────────────────────────────────────────────────────────
+function updateRingScore(id, value, color) {
+  if (value === null || value === undefined) return;
+  const clamped = Math.max(0, Math.min(100, value));
+  const circumference = 169.6; // 2 * PI * 27
+  const offset = circumference * (1 - clamped / 100);
+  const arc = document.getElementById(`${id}-arc`);
+  const val = document.getElementById(`${id}-val`);
+  if (arc) {
+    arc.style.strokeDashoffset = offset;
+    arc.style.stroke = color;
+  }
+  if (val) val.textContent = Math.round(clamped);
+}
+
+function updateRecoveryRings(data) {
+  updateRingScore('ring-recovery', data.recovery_score, 'var(--zone-2)');
+  updateRingScore('ring-fatigue', data.fatigue_score, 'var(--zone-4)');
+  updateRingScore('ring-readiness', data.readiness_score, 'var(--accent)');
+}
+
+// ── HRV Sparkline ─────────────────────────────────────────────────────────────
+function updateHrvSparkline(dataPoints) {
+  const svg = document.getElementById('hrv-sparkline');
+  const poly = document.getElementById('hrv-poly');
+  const valuesEl = document.getElementById('hrv-values');
+
+  if (!dataPoints || dataPoints.length === 0) {
+    svg.style.display = 'none';
+    return;
+  }
+  svg.style.display = 'block';
+
+  const W = 280, H = 36, pad = 2;
+  const vals = dataPoints.map(d => d.hrv_avg).filter(v => v != null);
+  if (vals.length === 0) {
+    svg.style.display = 'none';
+    return;
+  }
+
+  const minV = Math.min(...vals) - 2;
+  const maxV = Math.max(...vals) + 2;
+  const range = maxV - minV || 1;
+
+  const points = vals.map((v, i) => {
+    const x = pad + (W - pad * 2) * (i / (vals.length - 1 || 1));
+    const y = H - pad - (H - pad * 2) * ((v - minV) / range);
+    return `${x.toFixed(1)},${y.toFixed(1)}`;
+  });
+
+  poly.setAttribute('points', points.join(' '));
+
+  // Labels: show first and last dates
+  const dates = dataPoints.map(d => {
+    const parts = d.date.split('-');
+    return `${parseInt(parts[1])}/${parseInt(parts[2])}`;
+  });
+  if (valuesEl) {
+    valuesEl.innerHTML = `
+      <span>${dates[0] || ''}</span>
+      <span>${dates[Math.floor(dates.length / 2)] || ''}</span>
+      <span>${dates[dates.length - 1] || ''}</span>
+    `;
+  }
+}
+
+// ── Session History ───────────────────────────────────────────────────────────
+function renderHistory(sessions) {
+  const list = document.getElementById('history-list');
+  if (!sessions || sessions.length === 0) {
+    list.innerHTML = '<div class="no-data">No completed sessions yet</div>';
+    return;
+  }
+
+  list.innerHTML = sessions.map(s => {
+    const icon = WORKOUT_ICONS[s.workout_type] || WORKOUT_ICONS.default;
+    const duration = formatDuration(s.duration_seconds || 0);
+    const avg = s.avg_hr || '—';
+    const cal = Math.round(s.total_calories || 0);
+    const dist = s.total_distance ? (s.total_distance / 1000).toFixed(2) : '—';
+    const date = formatDate(s.started_at);
+
+    return `
+      <div class="history-row" data-session="${s.id}">
+        <span class="history-date">${date}</span>
+        <div class="history-type">
+          <span class="history-type-icon">${icon}</span>
+          <span style="text-transform:capitalize">${s.workout_type || 'Workout'}</span>
+        </div>
+        <div class="history-kpis">
+          <div class="history-kpi">
+            <span class="history-kpi-val">${duration}</span>
+            <span class="history-kpi-lbl">duration</span>
+          </div>
+          <div class="history-kpi">
+            <span class="history-kpi-val">${avg}</span>
+            <span class="history-kpi-lbl">avg hr</span>
+          </div>
+          <div class="history-kpi">
+            <span class="history-kpi-val">${cal}</span>
+            <span class="history-kpi-lbl">kcal</span>
+          </div>
+          ${dist !== '—' ? `<div class="history-kpi"><span class="history-kpi-val">${dist}</span><span class="history-kpi-lbl">km</span></div>` : ''}
+        </div>
+      </div>`;
+  }).join('');
+
+  // Click to expand
+  list.querySelectorAll('.history-row').forEach(row => {
+    row.addEventListener('click', () => {
+      const wasOpen = row.classList.contains('open');
+      list.querySelectorAll('.history-row').forEach(r => r.classList.remove('open'));
+      list.querySelectorAll('.history-expand').forEach(e => e.remove());
+      if (!wasOpen) {
+        row.classList.add('open');
+        const expand = document.createElement('div');
+        expand.className = 'history-expand open';
+        expand.innerHTML = '<div style="color:var(--text-muted);margin-bottom:8px">Time in Zones</div>' +
+          '<div class="zone-expand-row">' +
+          ZONES.map(z => `<div class="zone-expand-item"><span class="zone-expand-dot" style="background:${z.color}"></span><span class="zone-expand-lbl">${z.name}</span><span class="zone-expand-pct">—</span></div>`).join('') +
+          '</div>';
+        row.appendChild(expand);
+      }
+    });
+  });
+}
+
+// ── UI Update ─────────────────────────────────────────────────────────────────
+function updateUI(dataPoint) {
+  const hr = dataPoint.heart_rate;
+  const zone = getZone(hr);
+
+  // Hero HR
+  const hrEl = document.getElementById('hr-value');
+  hrEl.textContent = hr;
+  hrEl.style.color = zone.color;
+
+  // Zone badge
+  const badge = document.getElementById('zone-badge');
+  badge.style.background = zone.color + '22'; // 22 = ~13% opacity hex
+  badge.style.color = zone.color;
+  badge.querySelector('.zone-dot').style.background = zone.color;
+  document.getElementById('zone-name').textContent = zone.name;
+
+  // HR history
+  const now = Date.now();
+  state.hrHistory.push({ ts: now, hr, zone: zone.key });
+  if (state.hrHistory.length > CONFIG.chartMaxPoints) state.hrHistory.shift();
+
+  // Zone counters
+  state.zoneCounters[zone.key] = (state.zoneCounters[zone.key] || 0) + 1;
+
+  // Cumulative metrics
+  if (dataPoint.calories != null) state.cumulativeCal = dataPoint.calories;
+  if (dataPoint.distance != null) state.cumulativeDist = dataPoint.distance;
+
+  // Stats
+  const hrs = state.hrHistory.map(d => d.hr);
+  state.avgHr = Math.round(hrs.reduce((a, b) => a + b, 0) / hrs.length);
+  state.maxHr = Math.max(...hrs);
+  state.minHr = Math.min(...hrs);
+  document.getElementById('stat-avg-hr').textContent = state.avgHr;
+  document.getElementById('stat-max-hr').textContent = state.maxHr;
+  document.getElementById('stat-min-hr').textContent = state.minHr;
+
+  // Metrics
+  document.getElementById('metric-cal').textContent = Math.round(state.cumulativeCal);
+  document.getElementById('metric-dist').textContent = (state.cumulativeDist / 1000).toFixed(2);
+
+  // Elapsed time
+  if (state.sessionStartTime) {
+    const elapsed = Math.floor((Date.now() - state.sessionStartTime) / 1000);
+    document.getElementById('elapsed-time').textContent = formatDuration(elapsed);
+  }
+
+  // Redraw
+  drawChart();
+  updateZoneBar();
+}
+
+function updateConnectionUI(status) {
+  const dot = document.getElementById('conn-dot');
+  const label = document.getElementById('conn-label');
+
+  dot.className = 'conn-dot ' + status;
+  const labels = {
+    connected: 'Connected',
+    reconnecting: 'Reconnecting…',
+    disconnected: 'Disconnected',
+  };
+  label.textContent = labels[status] || status;
+}
+
+function showStatus(type, message) {
+  const bar = document.getElementById('status-bar');
+  const text = document.getElementById('status-text');
+  bar.className = `status-bar visible ${type}`;
+  text.textContent = message;
+  if (type !== 'error') {
+    setTimeout(() => { bar.className = 'status-bar'; }, 5000);
+  }
+}
+
+// ── WebSocket ──────────────────────────────────────────────────────────────────
+function connectWS() {
+  if (state.ws) {
+    state.ws.close();
+    state.ws = null;
+  }
+
+  const dashboardId = 'dashboard-' + (state.athleteId || 'anon');
+  const wsUrl = `${CONFIG.backendUrl}/${encodeURIComponent(dashboardId)}`;
+
+  updateConnectionUI('reconnecting');
+  const ws = new WebSocket(wsUrl);
+  state.ws = ws;
+
+  ws.onopen = () => {
+    state.connected = true;
+    state.reconnectAttempts = 0;
+    updateConnectionUI('connected');
+    showStatus('warning', 'Connection established. Subscribing to session…');
+
+    // Subscribe to session
+    if (state.sessionId) {
+      ws.send(JSON.stringify({ type: 'subscribe', session_id: state.sessionId }));
+    }
+
+    // Fetch initial data
+    fetchInitialData();
+  };
+
+  ws.onmessage = (evt) => {
+    try {
+      const msg = JSON.parse(evt.data);
+      handleMessage(msg);
+    } catch (e) {
+      // ignore parse errors
+    }
+  };
+
+  ws.onclose = () => {
+    state.connected = false;
+    updateConnectionUI('disconnected');
+    if (state.sessionId && !state.demoMode) {
+      scheduleReconnect();
+    }
+  };
+
+  ws.onerror = () => {
+    state.connected = false;
+    updateConnectionUI('disconnected');
+  };
+}
+
+function scheduleReconnect() {
+  const delay = Math.min(1000 * Math.pow(2, state.reconnectAttempts), CONFIG.maxReconnectDelay);
+  state.reconnectAttempts++;
+  showStatus('error', `Connection lost. Reconnecting in ${Math.round(delay / 1000)}s…`);
+  state.reconnectTimer = setTimeout(connectWS, delay);
+}
+
+function handleMessage(msg) {
+  if (msg.type === 'connected' || msg.type === 'subscribed') {
+    if (msg.type === 'subscribed') {
+      showStatus('warning', `Subscribed to session ${state.sessionId}`);
+      setTimeout(() => { document.getElementById('status-bar').className = 'status-bar'; }, 2000);
+    }
+    return;
+  }
+
+  if (msg.type === 'heart_rate') {
+    updateUI(msg);
+  }
+
+  if (msg.type === 'workout_ended') {
+    showStatus('warning', `Workout ended — Duration: ${formatDuration(msg.duration_seconds)}`);
+    // Refresh history
+    fetchSessionHistory();
+  }
+}
+
+// ── REST API ───────────────────────────────────────────────────────────────────
+async function fetchInitialData() {
+  if (!state.sessionId || !state.athleteId) return;
+
+  // Session data
+  try {
+    const r = await fetch(`${CONFIG.httpUrl}/api/sessions/${state.sessionId}`);
+    if (r.ok) {
+      const session = await r.json();
+      document.getElementById('workout-type-name').textContent =
+        (session.workout_type || 'running').charAt(0).toUpperCase() +
+        (session.workout_type || 'running').slice(1);
+      if (session.started_at) {
+        state.sessionStartTime = new Date(session.started_at).getTime();
+      }
+    }
+  } catch (e) { /* backend may not be running */ }
+
+  // Recovery metrics
+  await fetchRecoveryMetrics();
+
+  // Session history
+  await fetchSessionHistory();
+}
+
+async function fetchRecoveryMetrics() {
+  if (!state.athleteId) return;
+  try {
+    const r = await fetch(`${CONFIG.httpUrl}/api/recovery/${state.athleteId}?days=7`);
+    if (r.ok) {
+      const data = await r.json();
+      if (data.metrics && data.metrics.length > 0) {
+        const latest = data.metrics[0];
+        updateRecoveryRings(latest);
+        updateHrvSparkline(data.metrics.reverse());
+      }
+    }
+  } catch (e) { /* backend may not be running */ }
+}
+
+async function fetchSessionHistory() {
+  if (!state.athleteId) return;
+  try {
+    const r = await fetch(`${CONFIG.httpUrl}/api/athletes/${state.athleteId}`);
+    if (r.ok) {
+      const data = await r.json();
+      renderHistory(data.recent_sessions);
+    }
+  } catch (e) { /* backend may not be running */ }
+}
+
+// ── Demo Mode ─────────────────────────────────────────────────────────────────
+function startDemo() {
+  state.demoMode = true;
+  state.sessionId = 'demo-' + Math.random().toString(36).substr(2, 8);
+  state.athleteId = 'demo-athlete';
+  state.sessionStartTime = Date.now();
+
+  // Show dashboard
+  document.getElementById('setup-panel').style.display = 'none';
+  document.getElementById('dashboard').classList.add('active');
+  document.getElementById('session-badge').style.display = 'inline';
+  document.getElementById('session-id-display').textContent = 'DEMO MODE';
+
+  updateConnectionUI('connected');
+  document.getElementById('conn-label').textContent = 'Demo Mode';
+
+  // Generate recovery demo data
+  updateRecoveryRings({ recovery_score: 78, fatigue_score: 42, readiness_score: 85 });
+  const demoHrv = Array.from({ length: 7 }, (_, i) => ({
+    date: new Date(Date.now() - (6 - i) * 86400000).toISOString().split('T')[0],
+    hrv_avg: 45 + Math.round(Math.random() * 20),
+  }));
+  updateHrvSparkline(demoHrv);
+
+  // Demo session history
+  renderHistory([
+    { id: '1', started_at: new Date(Date.now() - 86400000).toISOString(), workout_type: 'running', duration_seconds: 3600, avg_hr: 148, total_calories: 620, total_distance: 8200 },
+    { id: '2', started_at: new Date(Date.now() - 2*86400000).toISOString(), workout_type: 'strength', duration_seconds: 2700, avg_hr: 112, total_calories: 380, total_distance: 0 },
+    { id: '3', started_at: new Date(Date.now() - 3*86400000).toISOString(), workout_type: 'running', duration_seconds: 4200, avg_hr: 155, total_calories: 780, total_distance: 9500 },
+  ]);
+
+  // Simulate HR progression
+  let simTime = 0;
+  const simulate = () => {
+    if (!state.demoMode) return;
+
+    simTime++;
+    const baseHr = 130 + 40 * Math.sin(simTime / 15) + Math.sin(simTime / 5) * 15;
+    const hr = Math.round(Math.max(95, Math.min(185, baseHr + (Math.random() - 0.5) * 10)));
+
+    updateUI({
+      heart_rate: hr,
+      calories: state.cumulativeCal + (0.2 + Math.random() * 0.3),
+      distance: state.cumulativeDist + (11 + Math.random() * 4),
+    });
+
+    state.demoInterval = setTimeout(simulate, CONFIG.demoInterval);
+  };
+
+  // First update
+  updateUI({
+    heart_rate: 135,
+    calories: 0,
+    distance: 0,
+  });
+  simulate();
+}
+
+function stopDemo() {
+  state.demoMode = false;
+  if (state.demoInterval) {
+    clearTimeout(state.demoInterval);
+    state.demoInterval = null;
+  }
+}
+
+// ── Setup Panel ───────────────────────────────────────────────────────────────
+document.getElementById('btn-connect').addEventListener('click', () => {
+  const sessionId = document.getElementById('input-session').value.trim();
+  const athleteId = document.getElementById('input-athlete').value.trim();
+
+  if (!sessionId) {
+    showStatus('error', 'Please enter a Session ID');
+    return;
+  }
+  if (!athleteId) {
+    showStatus('error', 'Please enter an Athlete ID');
+    return;
+  }
+
+  state.sessionId = sessionId;
+  state.athleteId = athleteId;
+  state.demoMode = false;
+
+  document.getElementById('setup-panel').style.display = 'none';
+  document.getElementById('dashboard').classList.add('active');
+  document.getElementById('session-badge').style.display = 'inline';
+  document.getElementById('session-id-display').textContent = sessionId;
+
+  connectWS();
+});
+
+document.getElementById('btn-demo').addEventListener('click', () => {
+  startDemo();
+});
+
+// Enter key to connect
+document.getElementById('input-session').addEventListener('keydown', (e) => {
+  if (e.key === 'Enter') document.getElementById('input-athlete').focus();
+});
+document.getElementById('input-athlete').addEventListener('keydown', (e) => {
+  if (e.key === 'Enter') document.getElementById('btn-connect').click();
+});
+
+// ── Resize Chart ──────────────────────────────────────────────────────────────
+window.addEventListener('resize', () => {
+  resizeCanvas();
+  drawChart();
+});
+
+// Initialize chart area
+setTimeout(() => {
+  resizeCanvas();
+}, 100);
+</script>
+</body>
+</html>

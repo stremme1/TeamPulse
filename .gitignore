@@ -1,0 +1,31 @@
+## macOS
+.DS_Store
+
+## Xcode / Swift
+DerivedData/
+*.xcuserstate
+*.xcuserdata/
+*.xccheckout
+*.xcscmblueprint
+*.xcodeproj/project.xcworkspace/xcuserdata/
+
+## Swift Package Manager
+.build/
+
+## CocoaPods
+Pods/
+
+## Python
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+ENV/
+env/
+
+## Logs
+*.log
+
+## Secrets / local config
+.env
+.env.*
