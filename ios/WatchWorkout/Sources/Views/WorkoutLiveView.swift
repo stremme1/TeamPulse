@@ -1,145 +1,269 @@
 import SwiftUI
+import WatchKit
+
+// MARK: - Design System (45mm base: 198×242 pt)
+
+/// Scale factor applied to all sizes for device proportionality.
+/// 41mm → 0.88, 44mm → 0.93, 45mm → 1.0, 49mm → 1.06
+private var scale: CGFloat {
+    let w = WKInterfaceDevice.current().screenBounds.width
+    return w / 198.0
+}
+
+private func sp(_ pts: CGFloat) -> CGFloat {
+    pts * scale
+}
+
+// MARK: - Ring Colors
+
+private let ringMove = Color(hex: "FF3B30")
+private let ringExercise = Color(hex: "32D74B")
+private let ringStand = Color(hex: "0A84FF")
+
+// MARK: - Zone Colors
+
+private let zoneColors: [String: Color] = [
+    "zone_1": Color(hex: "5B8DFF"),
+    "zone_2": Color(hex: "4ADE80"),
+    "zone_3": Color(hex: "FACC15"),
+    "zone_4": Color(hex: "FB923C"),
+    "zone_5": Color(hex: "F87171"),
+]
+
+private let zoneNames: [String: String] = [
+    "zone_1": "RECOVERY",
+    "zone_2": "AEROBIC",
+    "zone_3": "TEMPO",
+    "zone_4": "THRESHOLD",
+    "zone_5": "VO2 MAX",
+]
 
 // MARK: - Workout Live View
 
 struct WorkoutLiveView: View {
     @EnvironmentObject var workoutManager: WorkoutManager
+    @State private var displayedHeartRate: Int = 0
+    @State private var animatedPulse: CGFloat = 1.0
 
     var body: some View {
-        VStack(spacing: 0) {
-            // Header: workout type + elapsed
-            HStack {
-                Text(workoutManager.selectedWorkoutType.displayName)
-                    .font(.system(size: 10, weight: .medium))
-                    .foregroundColor(.secondary)
+        GeometryReader { geo in
+            let contentW = geo.size.width
+
+            VStack(spacing: 0) {
+                // Top padding
+                Spacer().frame(height: sp(8))
+
+                // ── Primary Metric: Heart Rate ──────────────────────────────────
+                HeartRateDisplay(heartRate: displayedHeartRate, zone: workoutManager.currentZone)
+                    .frame(height: sp(60))
+
+                // Spacing after HR
+                Spacer().frame(height: sp(10))
+
+                // ── Activity Rings ─────────────────────────────────────────────
+                ActivityRingsView(
+                    moveProgress: moveProgress,
+                    exerciseProgress: exerciseProgress,
+                    standProgress: standProgress
+                )
+                .frame(width: contentW, height: sp(130))
+
+                // Spacing after rings
+                Spacer().frame(height: sp(12))
+
+                // ── Secondary Metrics ───────────────────────────────────────────
+                SecondaryMetricsView(
+                    elapsedSeconds: workoutManager.elapsedSeconds,
+                    calories: workoutManager.activeCalories,
+                    avgHeartRate: workoutManager.averageHeartRate
+                )
+
                 Spacer()
-                Text(formatElapsed(workoutManager.elapsedSeconds))
-                    .font(.system(size: 11, weight: .medium, design: .monospaced))
-                    .monospacedDigit()
-            }
-            .padding(.horizontal, 12)
-            .padding(.top, 4)
 
-            Spacer()
-
-            // Zone ring + HR
-            ZStack {
-                // Zone ring
-                Circle()
-                    .trim(from: 0, to: zoneProgress)
-                    .stroke(zoneColor, style: StrokeStyle(lineWidth: 4, lineCap: .round))
-                    .rotationEffect(.degrees(-90))
-                    .frame(width: 100, height: 100)
-
-                // HR readout
-                VStack(spacing: 0) {
-                    Text("\(workoutManager.currentHeartRate)")
-                        .font(.system(size: 42, weight: .bold, design: .rounded))
-                        .monospacedDigit()
-                        .foregroundColor(zoneColor)
-                    Text("BPM")
-                        .font(.system(size: 9, weight: .medium))
-                        .foregroundColor(.secondary)
-                }
-            }
-
-            // Zone badge
-            HStack(spacing: 4) {
-                Circle()
-                    .fill(zoneColor)
-                    .frame(width: 5, height: 5)
-                Text(zoneName)
-                    .font(.system(size: 9, weight: .semibold))
-                    .foregroundColor(zoneColor)
-            }
-            .padding(.horizontal, 8)
-            .padding(.vertical, 3)
-            .background(zoneColor.opacity(0.12))
-            .cornerRadius(8)
-            .padding(.top, 6)
-
-            Spacer()
-
-            // Stats row
-            HStack(spacing: 0) {
-                MetricPill(value: formatCalories(workoutManager.activeCalories), label: "KCAL", color: .orange)
-                Rectangle().fill(Color.gray.opacity(0.15)).frame(width: 1, height: 28)
-                MetricPill(value: formatDistance(workoutManager.distance), label: "KM", color: .green)
-                Rectangle().fill(Color.gray.opacity(0.15)).frame(width: 1, height: 28)
-                MetricPill(value: "\(workoutManager.averageHeartRate)", label: "AVG", color: .pink)
-            }
-            .padding(.horizontal, 10)
-
-            Spacer()
-
-            // Controls
-            HStack(spacing: 10) {
-                // Pause / Resume — custom geometric
-                Button {
-                    if workoutManager.workoutState == .running {
-                        workoutManager.pauseWorkout()
-                    } else {
-                        workoutManager.resumeWorkout()
+                // ── Controls ───────────────────────────────────────────────────
+                HStack(spacing: sp(10)) {
+                    PausePlayButton(isPlaying: workoutManager.workoutState == .running) {
+                        if workoutManager.workoutState == .running {
+                            workoutManager.pauseWorkout()
+                        } else {
+                            workoutManager.resumeWorkout()
+                        }
                     }
-                } label: {
-                    PausePlayIcon(isPlaying: workoutManager.workoutState == .running)
-                        .frame(width: 56, height: 56)
-                        .foregroundColor(.white)
-                        .background(Color.gray.opacity(0.3))
-                        .clipShape(Circle())
-                }
-                .buttonStyle(.plain)
 
-                // End — custom X
-                Button {
-                    Task {
-                        try? await workoutManager.endWorkout()
+                    EndWorkoutButton {
+                        Task {
+                            try? await workoutManager.endWorkout()
+                        }
                     }
-                } label: {
-                    EndWorkoutIcon()
-                        .frame(width: 56, height: 56)
-                        .foregroundColor(.white)
-                        .background(Color.red)
-                        .clipShape(Circle())
                 }
-                .buttonStyle(.plain)
+                .padding(.horizontal, sp(16))
+                .padding(.bottom, sp(8))
             }
-            .padding(.horizontal, 16)
-            .padding(.bottom, 8)
+        }
+        .background(Color.black)
+        .onAppear {
+            displayedHeartRate = workoutManager.currentHeartRate
+        }
+        .onChange(of: workoutManager.currentHeartRate) { oldValue, newValue in
+            animateHeartRate(from: oldValue, to: newValue)
         }
     }
 
-    // MARK: - Zone
+    // MARK: - Animated HR Interpolation
+
+    private func animateHeartRate(from: Int, to: Int) {
+        let start = from
+        let end = to
+        let duration: Double = 0.35
+        let startTime = Date()
+
+        Timer.scheduledTimer(withTimeInterval: 1.0 / 60.0, repeats: true) { timer in
+            let elapsed = Date().timeIntervalSince(startTime)
+            let t = min(elapsed / duration, 1.0)
+            let eased = 1.0 - pow(1.0 - t, 3) // easeOut cubic
+
+            displayedHeartRate = Int(Double(start) + Double(end - start) * eased)
+
+            if t >= 1.0 {
+                timer.invalidate()
+            }
+        }
+    }
+
+    // MARK: - Ring Progress (static for now — scaled by session data)
+
+    private var moveProgress: CGFloat {
+        let goal: Double = 500 // kcal
+        return CGFloat(min(1.0, workoutManager.activeCalories / goal))
+    }
+
+    private var exerciseProgress: CGFloat {
+        let goal: Double = 30 // min
+        return CGFloat(min(1.0, Double(workoutManager.elapsedSeconds) / 60.0 / goal))
+    }
+
+    private var standProgress: CGFloat {
+        CGFloat(min(1.0, Double(workoutManager.elapsedSeconds % 4) / 4.0))
+    }
+}
+
+// MARK: - Heart Rate Display
+
+struct HeartRateDisplay: View {
+    let heartRate: Int
+    let zone: String
+
+    @State private var pulseScale: CGFloat = 1.0
+    @State private var pulseOpacity: CGFloat = 1.0
 
     private var zoneColor: Color {
-        switch workoutManager.currentZone {
-        case "zone_1": return Color(hex: "5B8DFF")
-        case "zone_2": return Color(hex: "4ADE80")
-        case "zone_3": return Color(hex: "FACC15")
-        case "zone_4": return Color(hex: "FB923C")
-        case "zone_5": return Color(hex: "F87171")
-        default: return .gray
+        zoneColors[zone] ?? .gray
+    }
+
+    var body: some View {
+        HStack(spacing: 0) {
+            Spacer()
+
+            // Heart icon with pulse
+            Image(systemName: "heart.fill")
+                .font(.system(size: sp(22)))
+                .foregroundColor(zoneColor)
+                .scaleEffect(pulseScale)
+                .opacity(pulseOpacity)
+                .onAppear {
+                    withAnimation(
+                        .easeInOut(duration: 1.0)
+                        .repeatForever(autoreverses: true)
+                    ) {
+                        pulseScale = 1.03
+                        pulseOpacity = 0.85
+                    }
+                }
+
+            // HR value — primary metric
+            Text("\(heartRate)")
+                .font(.system(size: sp(46), weight: .semibold, design: .rounded))
+                .monospacedDigit()
+                .foregroundColor(.white)
+                .contentTransition(.numericText())
+
+            Spacer()
         }
     }
+}
 
-    private var zoneName: String {
-        switch workoutManager.currentZone {
-        case "zone_1": return "RECOVERY"
-        case "zone_2": return "AEROBIC"
-        case "zone_3": return "TEMPO"
-        case "zone_4": return "THRESHOLD"
-        case "zone_5": return "VO2 MAX"
-        default: return "—"
+// MARK: - Activity Rings View
+
+struct ActivityRingsView: View {
+    let moveProgress: CGFloat
+    let exerciseProgress: CGFloat
+    let standProgress: CGFloat
+
+    private let ringStroke: CGFloat = sp(10)
+    private let ringGap: CGFloat = sp(5)
+
+    private var outerRadius: CGFloat { sp(58) }
+    private var middleRadius: CGFloat { outerRadius - ringStroke / 2 - ringGap / 2 }
+    private var innerRadius: CGFloat { middleRadius - ringStroke / 2 - ringGap / 2 }
+
+    var body: some View {
+        ZStack {
+            // Outer ring — Move (red)
+            Circle()
+                .trim(from: 0, to: moveProgress)
+                .stroke(
+                    ringMove,
+                    style: StrokeStyle(lineWidth: ringStroke, lineCap: .round)
+                )
+                .rotationEffect(.degrees(-90))
+                .frame(width: outerRadius * 2, height: outerRadius * 2)
+
+            // Middle ring — Exercise (green)
+            Circle()
+                .trim(from: 0, to: exerciseProgress)
+                .stroke(
+                    ringExercise,
+                    style: StrokeStyle(lineWidth: ringStroke, lineCap: .round)
+                )
+                .rotationEffect(.degrees(-90))
+                .frame(width: middleRadius * 2, height: middleRadius * 2)
+
+            // Inner ring — Stand (blue)
+            Circle()
+                .trim(from: 0, to: standProgress)
+                .stroke(
+                    ringStand,
+                    style: StrokeStyle(lineWidth: ringStroke, lineCap: .round)
+                )
+                .rotationEffect(.degrees(-90))
+                .frame(width: innerRadius * 2, height: innerRadius * 2)
         }
+        .animation(.linear(duration: 0.8), value: moveProgress)
+        .animation(.linear(duration: 0.8), value: exerciseProgress)
+        .animation(.linear(duration: 0.8), value: standProgress)
     }
+}
 
-    private var zoneProgress: CGFloat {
-        let hr = workoutManager.currentHeartRate
-        // Map 60–200 bpm to 0–1
-        return CGFloat(max(0, min(1, Double(hr - 60) / 140.0)))
+// MARK: - Secondary Metrics View
+
+struct SecondaryMetricsView: View {
+    let elapsedSeconds: Int
+    let calories: Double
+    let avgHeartRate: Int
+
+    private let rowHeight: CGFloat = sp(22)
+    private let valueSize: CGFloat = sp(17)
+    private let labelSize: CGFloat = sp(10)
+    private let rowSpacing: CGFloat = sp(7)
+
+    var body: some View {
+        VStack(spacing: rowSpacing) {
+            MetricRow(value: formatElapsed(elapsedSeconds), label: "TIME")
+            MetricRow(value: "\(Int(calories))", label: "KCAL")
+            MetricRow(value: "\(avgHeartRate)", label: "AVG BPM")
+        }
+        .padding(.horizontal, sp(12))
     }
-
-    // MARK: - Formatting
 
     private func formatElapsed(_ seconds: Int) -> String {
         let h = seconds / 3600
@@ -150,41 +274,73 @@ struct WorkoutLiveView: View {
         }
         return String(format: "%02d:%02d", m, s)
     }
-
-    private func formatCalories(_ calories: Double) -> String {
-        if calories >= 1000 {
-            return String(format: "%.1fk", calories / 1000)
-        }
-        return "\(Int(calories))"
-    }
-
-    private func formatDistance(_ meters: Double) -> String {
-        String(format: "%.2f", meters / 1000)
-    }
 }
 
-// MARK: - Metric Pill
-
-struct MetricPill: View {
+struct MetricRow: View {
     let value: String
     let label: String
-    let color: Color
 
     var body: some View {
-        VStack(spacing: 1) {
+        HStack {
             Text(value)
-                .font(.system(size: 13, weight: .semibold, design: .rounded))
+                .font(.system(size: sp(17), weight: .semibold, design: .rounded))
                 .monospacedDigit()
-                .foregroundColor(.primary)
+                .foregroundColor(.white)
+                .frame(maxWidth: .infinity, alignment: .leading)
+
             Text(label)
-                .font(.system(size: 8, weight: .medium))
-                .foregroundColor(.secondary)
+                .font(.system(size: sp(10), weight: .regular))
+                .foregroundColor(Color(hex: "B3B3B3"))
+                .frame(width: sp(60), alignment: .trailing)
         }
-        .frame(maxWidth: .infinity)
+        .frame(height: sp(20))
     }
 }
 
-// MARK: - Custom Control Icons (geometric — no SF Symbols)
+// MARK: - Control Buttons
+
+struct PausePlayButton: View {
+    let isPlaying: Bool
+    let action: () -> Void
+
+    var body: some View {
+        Button(action: action) {
+            ZStack {
+                Circle()
+                    .fill(Color.gray.opacity(0.3))
+                    .frame(width: sp(56), height: sp(56))
+
+                PausePlayIcon(isPlaying: isPlaying)
+                    .frame(width: sp(24), height: sp(24))
+                    .foregroundColor(.white)
+            }
+        }
+        .buttonStyle(.plain)
+        .frame(width: sp(56), height: sp(56))
+    }
+}
+
+struct EndWorkoutButton: View {
+    let action: () -> Void
+
+    var body: some View {
+        Button(action: action) {
+            ZStack {
+                Circle()
+                    .fill(ringMove)
+                    .frame(width: sp(56), height: sp(56))
+
+                EndWorkoutIcon()
+                    .frame(width: sp(18), height: sp(18))
+                    .foregroundColor(.white)
+            }
+        }
+        .buttonStyle(.plain)
+        .frame(width: sp(56), height: sp(56))
+    }
+}
+
+// MARK: - Custom Geometric Icons (no SF Symbols on watch controls)
 
 struct PausePlayIcon: View {
     let isPlaying: Bool
@@ -198,16 +354,14 @@ struct PausePlayIcon: View {
 
             Path { path in
                 if isPlaying {
-                    // Two vertical bars (pause)
-                    let bw: CGFloat = w * 0.12
-                    let bh: CGFloat = h * 0.38
+                    let bw: CGFloat = w * 0.13
+                    let bh: CGFloat = h * 0.40
                     let gap: CGFloat = w * 0.10
                     path.addRect(CGRect(x: cx - gap - bw, y: cy - bh / 2, width: bw, height: bh))
                     path.addRect(CGRect(x: cx + gap, y: cy - bh / 2, width: bw, height: bh))
                 } else {
-                    // Play triangle
-                    let size: CGFloat = min(w, h) * 0.36
-                    let tx = cx - size * 0.15
+                    let size: CGFloat = min(w, h) * 0.38
+                    let tx = cx - size * 0.18
                     let ty = cy - size / 2
                     path.move(to: CGPoint(x: tx, y: ty))
                     path.addLine(to: CGPoint(x: tx + size, y: cy))
@@ -225,7 +379,7 @@ struct EndWorkoutIcon: View {
         GeometryReader { geo in
             let w = geo.size.width
             let h = geo.size.height
-            let s = min(w, h) * 0.30
+            let s = min(w, h) * 0.32
 
             Path { path in
                 path.addRect(CGRect(x: (w - s) / 2, y: (h - s) / 2, width: s, height: s))

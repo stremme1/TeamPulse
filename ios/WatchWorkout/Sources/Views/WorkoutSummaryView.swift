@@ -1,4 +1,20 @@
 import SwiftUI
+import WatchKit
+
+// MARK: - Design System
+
+private var scale: CGFloat {
+    let w = WKInterfaceDevice.current().screenBounds.width
+    return w / 198.0
+}
+
+private func sp(_ pts: CGFloat) -> CGFloat { pts * scale }
+
+// MARK: - Ring Colors
+
+private let ringMove = Color(hex: "FF3B30")
+private let ringExercise = Color(hex: "32D74B")
+private let ringStand = Color(hex: "0A84FF")
 
 // MARK: - Workout Summary View
 
@@ -7,79 +23,74 @@ struct WorkoutSummaryView: View {
 
     var body: some View {
         VStack(spacing: 0) {
-            // Workout type
-            Text(workoutManager.selectedWorkoutType.displayName)
-                .font(.system(size: 12, weight: .medium))
-                .foregroundColor(.secondary)
-                .padding(.top, 6)
+            // Top padding
+            Spacer().frame(height: sp(8))
 
-            Spacer()
+            // Workout type label
+            Text(workoutManager.selectedWorkoutType.displayName.uppercased())
+                .font(.system(size: sp(10), weight: .medium))
+                .foregroundColor(Color(hex: "B3B3B3"))
+                .tracking(1.0)
 
-            // Duration — dominant
-            VStack(spacing: 4) {
+            // Spacer
+            Spacer().frame(height: sp(4))
+
+            // Duration — primary metric (large)
+            VStack(spacing: 2) {
                 Text(formatElapsed(workoutManager.elapsedSeconds))
-                    .font(.system(size: 40, weight: .bold, design: .rounded))
+                    .font(.system(size: sp(42), weight: .bold, design: .rounded))
                     .monospacedDigit()
-                    .foregroundColor(.primary)
+                    .foregroundColor(.white)
+
                 Text("DURATION")
-                    .font(.system(size: 9, weight: .medium))
-                    .foregroundColor(.secondary)
+                    .font(.system(size: sp(9), weight: .medium))
+                    .foregroundColor(Color(hex: "B3B3B3"))
             }
+
+            Spacer().frame(height: sp(10))
+
+            // Activity Rings — centered, filled
+            SummaryRingsView(
+                moveProgress: 0.85,
+                exerciseProgress: 0.6,
+                standProgress: 0.45
+            )
+            .frame(width: sp(130), height: sp(130))
+
+            Spacer().frame(height: sp(12))
+
+            // Secondary stats
+            SummaryStatsGrid(
+                avgHeartRate: workoutManager.averageHeartRate,
+                maxHeartRate: workoutManager.maxHeartRate,
+                calories: workoutManager.activeCalories,
+                distance: workoutManager.distance
+            )
 
             Spacer()
 
-            // Stats row — avg HR, max HR
-            HStack(spacing: 0) {
-                SummaryStat(value: "\(workoutManager.averageHeartRate)", label: "AVG", unit: "BPM")
-                Rectangle().fill(Color.gray.opacity(0.15)).frame(width: 1, height: 32)
-                SummaryStat(value: "\(workoutManager.maxHeartRate)", label: "MAX", unit: "BPM")
-            }
-            .padding(.horizontal, 12)
+            // Zone bar
+            ZoneBar()
+                .frame(height: sp(8))
+                .padding(.horizontal, sp(16))
 
-            Spacer()
-
-            // Secondary stats — kcal, distance
-            HStack(spacing: 0) {
-                SummaryStat(value: "\(Int(workoutManager.activeCalories))", label: "KCAL", unit: "")
-                Rectangle().fill(Color.gray.opacity(0.15)).frame(width: 1, height: 32)
-                SummaryStat(
-                    value: String(format: "%.1f", workoutManager.distance / 1000),
-                    label: "KM",
-                    unit: ""
-                )
-            }
-            .padding(.horizontal, 12)
-
-            Spacer()
-
-            // Zone bar — thin, minimal
-            VStack(spacing: 4) {
-                Text("ZONES")
-                    .font(.system(size: 8, weight: .medium))
-                    .foregroundColor(.secondary)
-
-                ZoneBar()
-                    .frame(height: 8)
-            }
-            .padding(.horizontal, 16)
-
-            Spacer()
+            Spacer().frame(height: sp(8))
 
             // Done button
             Button {
                 // Reset handled by WorkoutManager state change
             } label: {
                 Text("Done")
-                    .font(.system(size: 14, weight: .semibold))
+                    .font(.system(size: sp(14), weight: .semibold))
                     .foregroundColor(.black)
                     .frame(maxWidth: .infinity)
-                    .frame(height: 36)
+                    .frame(height: sp(38))
                     .background(Color.white)
-                    .cornerRadius(18)
+                    .cornerRadius(sp(19))
             }
             .buttonStyle(.plain)
-            .padding(.horizontal, 16)
-            .padding(.bottom, 8)
+            .padding(.horizontal, sp(16))
+            .padding(.bottom, sp(8))
         }
     }
 
@@ -94,7 +105,73 @@ struct WorkoutSummaryView: View {
     }
 }
 
-// MARK: - Summary Stat
+// MARK: - Summary Rings
+
+struct SummaryRingsView: View {
+    let moveProgress: CGFloat
+    let exerciseProgress: CGFloat
+    let standProgress: CGFloat
+
+    private let ringStroke: CGFloat = sp(10)
+    private let ringGap: CGFloat = sp(5)
+
+    private var outerRadius: CGFloat { sp(58) }
+    private var middleRadius: CGFloat { outerRadius - ringStroke / 2 - ringGap / 2 }
+    private var innerRadius: CGFloat { middleRadius - ringStroke / 2 - ringGap / 2 }
+
+    var body: some View {
+        ZStack {
+            Circle()
+                .trim(from: 0, to: moveProgress)
+                .stroke(ringMove, style: StrokeStyle(lineWidth: ringStroke, lineCap: .round))
+                .rotationEffect(.degrees(-90))
+                .frame(width: outerRadius * 2, height: outerRadius * 2)
+
+            Circle()
+                .trim(from: 0, to: exerciseProgress)
+                .stroke(ringExercise, style: StrokeStyle(lineWidth: ringStroke, lineCap: .round))
+                .rotationEffect(.degrees(-90))
+                .frame(width: middleRadius * 2, height: middleRadius * 2)
+
+            Circle()
+                .trim(from: 0, to: standProgress)
+                .stroke(ringStand, style: StrokeStyle(lineWidth: ringStroke, lineCap: .round))
+                .rotationEffect(.degrees(-90))
+                .frame(width: innerRadius * 2, height: innerRadius * 2)
+        }
+    }
+}
+
+// MARK: - Summary Stats Grid
+
+struct SummaryStatsGrid: View {
+    let avgHeartRate: Int
+    let maxHeartRate: Int
+    let calories: Double
+    let distance: Double
+
+    var body: some View {
+        VStack(spacing: sp(6)) {
+            HStack(spacing: 0) {
+                SummaryStat(value: "\(avgHeartRate)", label: "AVG", unit: "BPM")
+                Rectangle().fill(Color.white.opacity(0.12)).frame(width: 1, height: sp(24))
+                SummaryStat(value: "\(maxHeartRate)", label: "MAX", unit: "BPM")
+            }
+            .padding(.horizontal, sp(16))
+
+            HStack(spacing: 0) {
+                SummaryStat(value: "\(Int(calories))", label: "KCAL", unit: "")
+                Rectangle().fill(Color.white.opacity(0.12)).frame(width: 1, height: sp(24))
+                SummaryStat(
+                    value: String(format: "%.1f", distance / 1000),
+                    label: "KM",
+                    unit: ""
+                )
+            }
+            .padding(.horizontal, sp(16))
+        }
+    }
+}
 
 struct SummaryStat: View {
     let value: String
@@ -102,21 +179,23 @@ struct SummaryStat: View {
     let unit: String
 
     var body: some View {
-        VStack(spacing: 2) {
-            HStack(alignment: .firstTextBaseline, spacing: 2) {
-                Text(value)
-                    .font(.system(size: 18, weight: .semibold, design: .rounded))
-                    .monospacedDigit()
-                    .foregroundColor(.primary)
-                if !unit.isEmpty {
-                    Text(unit)
-                        .font(.system(size: 9, weight: .medium))
-                        .foregroundColor(.secondary)
-                }
+        HStack(alignment: .firstTextBaseline, spacing: 2) {
+            Text(value)
+                .font(.system(size: sp(17), weight: .semibold, design: .rounded))
+                .monospacedDigit()
+                .foregroundColor(.white)
+
+            if !unit.isEmpty {
+                Text(unit)
+                    .font(.system(size: sp(9), weight: .medium))
+                    .foregroundColor(Color(hex: "B3B3B3"))
             }
+
+            Spacer()
+
             Text(label)
-                .font(.system(size: 8, weight: .medium))
-                .foregroundColor(.secondary)
+                .font(.system(size: sp(10), weight: .regular))
+                .foregroundColor(Color(hex: "B3B3B3"))
         }
         .frame(maxWidth: .infinity)
     }
@@ -128,13 +207,12 @@ struct ZoneBar: View {
     var body: some View {
         GeometryReader { geo in
             HStack(spacing: 2) {
-                Rectangle().fill(Color(hex: "5B8DFF")).frame(width: geo.size.width * 0.15)
-                Rectangle().fill(Color(hex: "4ADE80")).frame(width: geo.size.width * 0.30)
-                Rectangle().fill(Color(hex: "FACC15")).frame(width: geo.size.width * 0.30)
-                Rectangle().fill(Color(hex: "FB923C")).frame(width: geo.size.width * 0.15)
-                Rectangle().fill(Color(hex: "F87171")).frame(width: geo.size.width * 0.10)
+                Rectangle().fill(Color(hex: "5B8DFF")).cornerRadius(3)
+                Rectangle().fill(Color(hex: "4ADE80")).cornerRadius(3)
+                Rectangle().fill(Color(hex: "FACC15")).cornerRadius(3)
+                Rectangle().fill(Color(hex: "FB923C")).cornerRadius(3)
+                Rectangle().fill(Color(hex: "F87171")).cornerRadius(3)
             }
-            .cornerRadius(4)
         }
     }
 }
