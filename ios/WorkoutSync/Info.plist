@@ -18,5 +18,7 @@
 	<string>1.0</string>
 	<key>CFBundleVersion</key>
 	<string>1</string>
+	<key>NSHealthShareUsageDescription</key>
+	<string>TeamPulse needs access to your health data to track workouts, heart rate, calories, and recovery metrics from Apple Watch.</string>
 </dict>
 </plist>

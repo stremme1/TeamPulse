@@ -29,40 +29,40 @@ struct WorkoutSelectionView: View {
 
     var body: some View {
         VStack(spacing: 0) {
-            // Header
-            Text("Workout")
-                .font(.system(size: 12, weight: .medium))
-                .foregroundColor(.secondary)
-                .padding(.top, 6)
+            ScrollView(.vertical, showsIndicators: true) {
+                // Header
+                Text("Workout")
+                    .font(.system(size: 12, weight: .medium))
+                    .foregroundColor(.secondary)
+                    .padding(.top, 6)
 
-            Spacer().frame(height: 8)
+                Spacer().frame(height: 8)
 
-            // Workout type grid — 2 columns, minimal
-            LazyVGrid(columns: [
-                GridItem(.flexible()),
-                GridItem(.flexible()),
-            ], spacing: 6) {
-                ForEach(WorkoutType.allCases.prefix(6)) { type in
-                    WorkoutTypeCell(
-                        type: type,
-                        isSelected: workoutManager.selectedWorkoutType == type,
-                        action: {
-                            workoutManager.selectWorkoutType(type)
-                        }
-                    )
+                // Workout type grid — 2 columns, minimal
+                LazyVGrid(columns: [
+                    GridItem(.flexible()),
+                    GridItem(.flexible()),
+                ], spacing: 6) {
+                    ForEach(WorkoutType.allCases) { type in
+                        WorkoutTypeCell(
+                            type: type,
+                            isSelected: workoutManager.selectedWorkoutType == type,
+                            action: {
+                                workoutManager.selectWorkoutType(type)
+                            }
+                        )
+                    }
                 }
+                .padding(.horizontal, 10)
+
+                // Selected workout name
+                Text(workoutManager.selectedWorkoutType.displayName)
+                    .font(.system(size: 10, weight: .medium))
+                    .foregroundColor(.secondary)
+                    .padding(.top, 6)
             }
-            .padding(.horizontal, 10)
 
-            // Selected workout name
-            Text(workoutManager.selectedWorkoutType.displayName)
-                .font(.system(size: 10, weight: .medium))
-                .foregroundColor(.secondary)
-                .padding(.top, 6)
-
-            Spacer()
-
-            // Start button
+            // Start button — fixed at bottom
             Button {
                 startWorkout()
             } label: {

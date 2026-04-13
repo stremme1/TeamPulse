@@ -22,5 +22,9 @@
 	<true/>
 	<key>WKCompanionAppBundleIdentifier</key>
 	<string>com.workoutsystem.iphone</string>
+	<key>NSHealthShareUsageDescription</key>
+	<string>TeamPulse needs access to your health data to track workouts, heart rate, calories, and distance.</string>
+	<key>NSHealthUpdateUsageDescription</key>
+	<string>TeamPulse saves your workout data to Apple Health.</string>
 </dict>
 </plist>
