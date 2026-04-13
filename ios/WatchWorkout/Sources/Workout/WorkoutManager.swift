@@ -200,12 +200,17 @@ final class WorkoutManager: NSObject, ObservableObject {
         configuration.activityType = selectedWorkoutType.hkWorkoutActivityType
         configuration.locationType = .outdoor
 
+        // HKWorkoutSession is only supported on physical Watch hardware, not Watch Simulator
+        #if targetEnvironment(simulator)
+        print("WorkoutManager: Running on Watch Simulator — skipping HKWorkoutSession")
+        #else
         // Create workout session
         do {
             workoutSession = try HKWorkoutSession(healthStore: healthStore, configuration: configuration)
         } catch {
             throw WorkoutError.cannotCreateSession(error)
         }
+        #endif
 
         workoutBuilder = workoutSession?.associatedWorkoutBuilder()
         workoutBuilder?.dataSource = HKLiveWorkoutDataSource(

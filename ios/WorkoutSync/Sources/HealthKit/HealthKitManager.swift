@@ -102,17 +102,29 @@ final class HealthKitManager: NSObject, ObservableObject {
     private func enableBackgroundDelivery() async throws {
         guard !backgroundDeliveryEnabled else { return }
 
+        // Background delivery is not fully supported on iOS Simulator
+        #if targetEnvironment(simulator)
+        print("HealthKit: Skipping background delivery on simulator")
+        backgroundDeliveryEnabled = true
+        return
+        #else
         for type in readTypes {
             guard let sampleType = type as? HKSampleType else { continue }
 
-            try await healthStore.enableBackgroundDelivery(
-                for: sampleType,
-                frequency: .immediate
-            )
+            do {
+                try await healthStore.enableBackgroundDelivery(
+                    for: sampleType,
+                    frequency: .immediate
+                )
+            } catch {
+                // Some types don't support background delivery — skip them
+                print("HealthKit: Background delivery not supported for \(sampleType.identifier): \(error.localizedDescription)")
+            }
         }
 
         backgroundDeliveryEnabled = true
         setupObserverQueries()
+        #endif
     }
 
     private func setupObserverQueries() {
