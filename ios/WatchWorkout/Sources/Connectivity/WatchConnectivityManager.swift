@@ -44,6 +44,9 @@ final class WatchConnectivityManager: NSObject, ObservableObject {
             "timestamp": Date().timeIntervalSince1970
         ]
         send(message)
+
+        // Also update application context so iPhone gets it even when not reachable
+        updateApplicationContext(sessionId: sessionId, athleteId: athleteId, workoutType: workoutType)
     }
 
     // MARK: - Heart Rate Data
@@ -153,18 +156,40 @@ final class WatchConnectivityManager: NSObject, ObservableObject {
 
     // MARK: - Context Update (for complications / glance)
 
-    func updateComplicationContext(sessionId: String, heartRate: Int, elapsed: Int) {
+    func updateApplicationContext(sessionId: String, athleteId: String, workoutType: String) {
         guard let session = session, session.activationState == .activated else { return }
 
         let context: [String: Any] = [
+            "type": "session_started",
             "session_id": sessionId,
+            "athlete_id": athleteId,
+            "workout_type": workoutType,
+            "timestamp": Date().timeIntervalSince1970
+        ]
+        do {
+            try session.updateApplicationContext(context)
+            print("WC: Updated applicationContext with session_id=\(sessionId)")
+        } catch {
+            print("WC updateApplicationContext error: \(error.localizedDescription)")
+        }
+    }
+
+    func updateComplicationContext(sessionId: String, athleteId: String, workoutType: String, heartRate: Int, elapsed: Int) {
+        guard let session = session, session.activationState == .activated else { return }
+
+        let context: [String: Any] = [
+            "type": "live_workout",
+            "session_id": sessionId,
+            "athlete_id": athleteId,
+            "workout_type": workoutType,
             "heart_rate": heartRate,
-            "elapsed_seconds": elapsed
+            "elapsed_seconds": elapsed,
+            "timestamp": Date().timeIntervalSince1970
         ]
         do {
             try session.updateApplicationContext(context)
         } catch {
-            print("WC updateApplicationContext error: \(error.localizedDescription)")
+            print("WC updateComplicationContext error: \(error.localizedDescription)")
         }
     }
 }

@@ -131,6 +131,12 @@ extension WatchConnectivityReceiver: WCSessionDelegate {
             print("WCSession activation error: \(error.localizedDescription)")
         } else {
             print("WCSession activated: \(activationState.rawValue), paired=\(session.isPaired), reachable=\(session.isReachable)")
+
+            // Check if Watch already has an active session in application context
+            if !session.applicationContext.isEmpty {
+                print("WC: Found existing applicationContext from Watch: \(session.applicationContext)")
+                handleMessage(session.applicationContext, isUserInfo: false)
+            }
         }
     }
 
@@ -162,6 +168,11 @@ extension WatchConnectivityReceiver: WCSessionDelegate {
 
     func session(_ session: WCSession, didReceiveUserInfo userInfo: [String: Any] = [:]) {
         handleMessage(userInfo, isUserInfo: true)
+    }
+
+    func session(_ session: WCSession, didReceiveApplicationContext applicationContext: [String: Any]) {
+        print("WC: Received applicationContext update: \(applicationContext)")
+        handleMessage(applicationContext, isUserInfo: false)
     }
 
     private func handleMessage(_ message: [String: Any], isUserInfo: Bool) {

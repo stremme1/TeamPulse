@@ -149,6 +149,7 @@ final class WorkoutManager: NSObject, ObservableObject {
     private var heartRateSamples: [Int] = []
     private var lastSyncedCalorie: Double = 0
     private var lastSyncedDistance: Double = 0
+    private var lastComplicationUpdateSeconds: Int = 0
 
     // MARK: - Delegates
 
@@ -364,6 +365,18 @@ final class WorkoutManager: NSObject, ObservableObject {
             sessionId: sessionId,
             dataPoint: dataPoint
         )
+
+        // Update complication context every 30 seconds so iPhone gets live data
+        if elapsedSeconds - lastComplicationUpdateSeconds >= 30 {
+            lastComplicationUpdateSeconds = elapsedSeconds
+            connectivityManager.updateComplicationContext(
+                sessionId: sessionId,
+                athleteId: athleteId,
+                workoutType: selectedWorkoutType.rawValue,
+                heartRate: currentHeartRate,
+                elapsed: elapsedSeconds
+            )
+        }
     }
 
     // MARK: - Heart Rate Zone Calculation
@@ -425,6 +438,7 @@ final class WorkoutManager: NSObject, ObservableObject {
         heartRateSamples = []
         lastSyncedCalorie = 0
         lastSyncedDistance = 0
+        lastComplicationUpdateSeconds = 0
         sessionId = ""
         workoutSession = nil
         workoutBuilder = nil
