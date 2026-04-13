@@ -3,42 +3,155 @@
     {
       "idiom" : "watch",
       "scale" : "2x",
-      "size" : "1024x1024",
       "screen-width" : "<=145",
-      "appearances" : [
-        {
-          "appearance" : "luminosity",
-          "value" : "dark"
-        }
-      ]
+      "size" : "24x24"
     },
     {
       "idiom" : "watch",
       "scale" : "2x",
-      "size" : "1024x1024",
       "screen-width" : ">145",
-      "appearances" : [
-        {
-          "appearance" : "luminosity",
-          "value" : "dark"
-        }
-      ]
+      "size" : "27.5x27.5"
     },
     {
       "idiom" : "watch",
       "scale" : "2x",
-      "size" : "1024x1024",
-      "screen-width" : "<=145"
+      "screen-width" : "<=145",
+      "size" : "29x29"
     },
     {
       "idiom" : "watch",
       "scale" : "2x",
-      "size" : "1024x1024",
-      "screen-width" : ">145"
+      "screen-width" : ">145",
+      "size" : "33x33"
+    },
+    {
+      "idiom" : "watch",
+      "scale" : "2x",
+      "screen-width" : "<=145",
+      "size" : "40x40"
+    },
+    {
+      "idiom" : "watch",
+      "scale" : "2x",
+      "screen-width" : ">145",
+      "size" : "46x46"
+    },
+    {
+      "idiom" : "watch",
+      "scale" : "2x",
+      "screen-width" : "<=145",
+      "size" : "48x48"
+    },
+    {
+      "idiom" : "watch",
+      "scale" : "2x",
+      "screen-width" : ">145",
+      "size" : "50x50"
+    },
+    {
+      "idiom" : "watch",
+      "scale" : "2x",
+      "screen-width" : "<=145",
+      "size" : "51x51"
+    },
+    {
+      "idiom" : "watch",
+      "scale" : "2x",
+      "screen-width" : ">145",
+      "size" : "54x54"
+    },
+    {
+      "idiom" : "watch",
+      "scale" : "2x",
+      "screen-width" : "<=145",
+      "size" : "57x57"
+    },
+    {
+      "idiom" : "watch",
+      "scale" : "2x",
+      "screen-width" : ">145",
+      "size" : "60x60"
+    },
+    {
+      "idiom" : "watch",
+      "scale" : "2x",
+      "screen-width" : ">145",
+      "size" : "64x64"
+    },
+    {
+      "idiom" : "watch",
+      "scale" : "2x",
+      "screen-width" : "<=145",
+      "size" : "76x76"
+    },
+    {
+      "idiom" : "watch",
+      "scale" : "2x",
+      "screen-width" : ">145",
+      "size" : "80x80"
+    },
+    {
+      "idiom" : "watch",
+      "scale" : "2x",
+      "screen-width" : "<=145",
+      "size" : "87x87"
+    },
+    {
+      "idiom" : "watch",
+      "scale" : "2x",
+      "screen-width" : ">145",
+      "size" : "88x88"
+    },
+    {
+      "idiom" : "watch",
+      "scale" : "2x",
+      "screen-width" : "<=145",
+      "size" : "100x100"
+    },
+    {
+      "idiom" : "watch",
+      "scale" : "2x",
+      "screen-width" : ">145",
+      "size" : "102x102"
+    },
+    {
+      "idiom" : "watch",
+      "scale" : "2x",
+      "screen-width" : "<=145",
+      "size" : "172x172"
+    },
+    {
+      "idiom" : "watch",
+      "scale" : "2x",
+      "screen-width" : ">145",
+      "size" : "180x180"
+    },
+    {
+      "idiom" : "watch",
+      "scale" : "2x",
+      "screen-width" : "<=145",
+      "size" : "196x196"
+    },
+    {
+      "idiom" : "watch",
+      "scale" : "2x",
+      "screen-width" : ">145",
+      "size" : "216x216"
+    },
+    {
+      "idiom" : "watch",
+      "scale" : "2x",
+      "screen-width" : "<=145",
+      "size" : "234x234"
+    },
+    {
+      "idiom" : "watch",
+      "scale" : "2x",
+      "screen-width" : ">145",
+      "size" : "258x258"
     },
     {
       "idiom" : "watch-marketing",
-      "scale" : "1x",
       "size" : "1024x1024"
     }
   ],
