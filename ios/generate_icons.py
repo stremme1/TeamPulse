@@ -2,6 +2,12 @@
 """
 Generate TeamPulse app icons using raw Python pixel buffers and manual PNG encoding.
 No external image libraries needed beyond stdlib + zlib.
+
+Icon design:
+- Dark rounded-square background (#1C1C1E)
+- Three concentric activity rings (Move=red, Exercise=green, Stand=blue)
+- Centered pulsing ECG/pulse line in white
+- Clean, bold, Apple Fitness-inspired aesthetic
 """
 
 import struct, zlib, math, os
@@ -9,21 +15,22 @@ import struct, zlib, math, os
 # ── Color Palette ──────────────────────────────────────────────────────────
 
 BG_COLOR      = (28, 28, 30, 255)
-HEART_COLOR   = (255, 59, 48, 255)
 RING_MOVE     = (255, 59, 48, 255)
 RING_EXERCISE = (50, 215, 75, 255)
 RING_STAND    = (10, 132, 255, 255)
 WHITE         = (255, 255, 255, 255)
-SHADOW        = (0, 0, 0, 100)
+SHADOW        = (0, 0, 0, 80)
 
 # ── Output dirs ─────────────────────────────────────────────────────────────
 
-BASE_DIR   = os.path.dirname(os.path.abspath(__file__))
-IPHONE_DIR = os.path.join(BASE_DIR, "ios/WorkoutSync/Assets.xcassets/AppIcon.appiconset")
-WATCH_DIR  = os.path.join(BASE_DIR, "ios/WatchWorkout/Assets.xcassets/AppIcon.appiconset")
+SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
+# Script lives in ios/ — ROOT_DIR is the ios folder itself
+ROOT_DIR   = SCRIPT_DIR
+IPHONE_DIR = os.path.join(ROOT_DIR, "WorkoutSync", "Assets.xcassets", "AppIcon.appiconset")
+WATCH_DIR  = os.path.join(ROOT_DIR, "WatchWorkout", "Assets.xcassets", "AppIcon.appiconset")
 
 
-# ── Pixel Buffer ────────────────────────────────────────────────────────────
+# ── Pixel Buffer ───────────────────────────────────────────────────────────
 
 class PixelBuffer:
     """Row-major RGBA pixel buffer with premultiplied alpha blending."""
@@ -31,7 +38,6 @@ class PixelBuffer:
     def __init__(self, w, h):
         self.w = w
         self.h = h
-        # Flat RGBA list, each pixel = [r, g, b, a]
         self.pixels = [[0, 0, 0, 0] for _ in range(w * h)]
 
     def _idx(self, x, y):
@@ -56,7 +62,6 @@ class PixelBuffer:
         ca = a / 255.0
         na = ca + da * (1 - ca)
         if na > 0 and na < 1.0:
-            # Simple over — clamp
             na = max(0.001, min(0.999, na))
         elif na == 0:
             return
@@ -73,16 +78,13 @@ class PixelBuffer:
 
 def save_png(buf, filepath):
     """Save PixelBuffer as a PNG file."""
-
     def chunk(tag, data):
         crc = zlib.crc32(tag + data) & 0xFFFFFFFF
         return struct.pack(">I", len(data)) + tag + data + struct.pack(">I", crc)
 
     w, h = buf.w, buf.h
-    # IHDR
     ihdr_data = struct.pack(">IIBBBBB", w, h, 8, 6, 0, 0, 0)
 
-    # Raw rows with filter byte
     raw = b"".join(
         b"\x00" + bytes(sum(buf.pixels[y * w:(y + 1) * w], []))
         for y in range(h)
@@ -96,66 +98,11 @@ def save_png(buf, filepath):
         f.write(chunk(b"IEND", b""))
 
 
-# ── Drawing Primitives ──────────────────────────────────────────────────────
-
-def fill_polygon(buf, polygon):
-    """Scanline polygon fill using the even-odd rule."""
-    if not polygon:
-        return
-    xs = [p[0] for p in polygon]
-    ys = [p[1] for p in polygon]
-    y_min = max(0, int(min(ys)) - 1)
-    y_max = min(buf.h, int(max(ys)) + 2)
-
-    for y in range(y_min, y_max):
-        intersections = []
-        n = len(polygon)
-        for i in range(n):
-            p1, p2 = polygon[i], polygon[(i + 1) % n]
-            if abs(p1[1] - p2[1]) < 1e-9:
-                continue
-            if (y >= min(p1[1], p2[1])) and (y < max(p1[1], p2[1])):
-                x = p1[0] + (y - p1[1]) * (p2[0] - p1[0]) / (p2[1] - p1[1])
-                intersections.append(x)
-        intersections.sort()
-        for i in range(0, len(intersections) - 1, 2):
-            x1, x2 = max(0, int(intersections[i])), min(buf.w - 1, int(intersections[i + 1]))
-            for x in range(x1, x2 + 1):
-                buf.blendpixel(x, y, WHITE)  # caller specifies color via closure
-
-
-def fill_polygon_color(buf, polygon, color):
-    """Fill polygon with scanline, but we need to override WHITE above.
-    Simpler approach: draw fill as a solid rect then mask. Or: use the scanline
-    approach directly with the color."""
-    if not polygon:
-        return
-    xs = [p[0] for p in polygon]
-    ys = [p[1] for p in polygon]
-    y_min = max(0, int(min(ys)) - 1)
-    y_max = min(buf.h, int(max(ys)) + 2)
-
-    for y in range(y_min, y_max):
-        intersections = []
-        n = len(polygon)
-        for i in range(n):
-            p1, p2 = polygon[i], polygon[(i + 1) % n]
-            if abs(p1[1] - p2[1]) < 1e-9:
-                continue
-            if (y >= min(p1[1], p2[1])) and (y < max(p1[1], p2[1])):
-                x = p1[0] + (y - p1[1]) * (p2[0] - p1[0]) / (p2[1] - p1[1])
-                intersections.append(x)
-        intersections.sort()
-        for i in range(0, len(intersections) - 1, 2):
-            x1, x2 = max(0, int(intersections[i])), min(buf.w - 1, int(intersections[i + 1]))
-            for x in range(x1, x2 + 1):
-                buf.blendpixel(x, y, color)
-
+# ── Drawing Primitives ─────────────────────────────────────────────────────
 
 def fill_rounded_rect(buf, x0, y0, w, h, r, color):
     """Fill a rounded rectangle."""
-    # Corners (circles) + center rect
-    # Center
+    # Center rect
     for y in range(y0 + r, y0 + h - r):
         for x in range(x0, x0 + w):
             buf.blendpixel(x, y, color)
@@ -199,7 +146,6 @@ def fill_ring_arc(buf, cx, cy, r, width, start_deg, end_deg, color):
             if (angle - s_norm) % 360 >= span:
                 continue
 
-            # Alpha based on edge proximity
             dist = math.sqrt(dist_sq)
             alpha = 255
             if dist > r + width / 2 - 1:
@@ -237,18 +183,31 @@ def draw_line(buf, x1, y1, x2, y2, color, width=1):
             y += sy
 
 
-def fill_circle_fast(buf, cx, cy, r, color):
-    """Fast solid circle fill."""
-    for y in range(max(0, cy - r - 1), min(buf.h, cy + r + 2)):
-        dx = int(math.sqrt(max(0, (r + 0.5)**2 - (y - cy)**2)))
-        for x in range(cx - dx, cx + dx + 1):
-            buf.blendpixel(x, y, color)
+# ── Pulse/ECG Line Points ────────────────────────────────────────────────────
+
+def pulse_points(cx, cy, size):
+    """ECG/pulse line centered at (cx, cy)."""
+    pw = size * 0.55
+    ph = size * 0.18
+    py = cy + size * 0.02
+
+    raw = [
+        (0.00, 0.50), (0.12, 0.50), (0.20, 0.28),
+        (0.28, 0.04), (0.35, 0.28), (0.42, 0.50),
+        (0.52, 0.50), (0.60, 0.35), (0.66, 0.10),
+        (0.72, 0.38), (0.80, 0.50), (1.00, 0.50),
+    ]
+    return [
+        (cx - pw / 2 + pw * p[0],
+         py - ph * (p[1] - 0.5))
+        for p in raw
+    ]
 
 
 # ── Heart Shape ─────────────────────────────────────────────────────────────
 
-def heart_polygon(cx, cy, size):
-    """Heart polygon centered at (cx, cy)."""
+def heart_points(cx, cy, size):
+    """Heart polygon points centered at (cx, cy)."""
     pts = []
     for t in range(361):
         t_rad = t / 360 * 2 * math.pi
@@ -258,8 +217,8 @@ def heart_polygon(cx, cy, size):
         pts.append((x, y))
     xs = [p[0] for p in pts]
     ys = [p[1] for p in pts]
-    w = size * 0.60
-    h = size * 0.54
+    w = size * 0.42
+    h = size * 0.38
     return [
         (cx + w * (p[0] - min(xs)) / (max(xs) - min(xs)) - w / 2,
          cy + h * (p[1] - min(ys)) / (max(ys) - min(ys)) - h / 2)
@@ -267,57 +226,70 @@ def heart_polygon(cx, cy, size):
     ]
 
 
-# ── Pulse Line ───────────────────────────────────────────────────────────────
+def scanline_fill(buf, polygon, color):
+    """Scanline fill using even-odd rule."""
+    if not polygon:
+        return
+    ys = [p[1] for p in polygon]
+    y_min = max(0, int(min(ys)) - 1)
+    y_max = min(buf.h, int(max(ys)) + 2)
 
-def pulse_points(cx, cy, size):
-    """ECG/pulse line points."""
-    pw = size * 0.50
-    ph = size * 0.16
-    py = cy + size * 0.02
-    raw = [
-        (0.00, 0.50), (0.18, 0.50), (0.25, 0.27),
-        (0.32, 0.04), (0.38, 0.27), (0.45, 0.50),
-        (0.55, 0.50), (0.62, 0.36), (0.68, 0.10),
-        (0.74, 0.36), (0.82, 0.50), (1.00, 0.50),
-    ]
-    return [
-        (cx - pw / 2 + pw * p[0],
-         py - ph * (p[1] - 0.5))
-        for p in raw
-    ]
+    for y in range(y_min, y_max):
+        intersections = []
+        n = len(polygon)
+        for i in range(n):
+            p1, p2 = polygon[i], polygon[(i + 1) % n]
+            if abs(p1[1] - p2[1]) < 1e-9:
+                continue
+            if (y >= min(p1[1], p2[1])) and (y < max(p1[1], p2[1])):
+                x = p1[0] + (y - p1[1]) * (p2[0] - p1[0]) / (p2[1] - p1[1])
+                intersections.append(x)
+        intersections.sort()
+        for i in range(0, len(intersections) - 1, 2):
+            x1, x2 = max(0, int(intersections[i])), min(buf.w - 1, int(intersections[i + 1]))
+            for x in range(x1, x2 + 1):
+                buf.blendpixel(x, y, color)
 
 
 # ── Main Builder ─────────────────────────────────────────────────────────────
 
 def create_icon(size, filepath):
-    """Generate a single app icon."""
+    """Generate a single TeamPulse app icon."""
     buf = PixelBuffer(size, size)
 
-    pad     = size // 10
+    pad     = size // 8
     content = size - pad * 2
     cx      = size // 2
     cy      = size // 2
-    heart_s = content * 0.68
+    icon_sz = content * 0.85
 
     # ── 1. Rounded square background ────────────────────────────────────────
     rr = size // 5
     fill_rounded_rect(buf, pad, pad, content, content, rr, BG_COLOR)
 
-    # ── 2. Activity rings ────────────────────────────────────────────────────
-    stroke = max(2, size // 18)
-    outer  = heart_s * 0.50
-    arc_s  = 140
+    # ── 2. Three activity rings (concentric, starting from ~3 o'clock, sweeping most of circle) ──
+    stroke = max(2, size // 20)
+    arc_start = 135  # Start at ~7:30 position (top-left)
 
-    fill_ring_arc(buf, cx, cy, outer * 1.14, stroke, arc_s,         arc_s + 0.72*360, RING_MOVE)
-    fill_ring_arc(buf, cx, cy, outer * 0.95, stroke, arc_s + 25,    arc_s + 25 + 0.58*360, RING_EXERCISE)
-    fill_ring_arc(buf, cx, cy, outer * 0.76, stroke, arc_s + 50,    arc_s + 50 + 0.45*360, RING_STAND)
+    # Outer ring - Move (red)
+    outer_r = icon_sz * 0.50
+    fill_ring_arc(buf, cx, cy, outer_r, stroke, arc_start, arc_start + 280, RING_MOVE)
 
-    # ── 3. Heart ─────────────────────────────────────────────────────────────
-    fill_polygon_color(buf, heart_polygon(cx, cy, heart_s), HEART_COLOR)
+    # Middle ring - Exercise (green)
+    middle_r = outer_r - stroke - max(2, size // 32)
+    fill_ring_arc(buf, cx, cy, middle_r, stroke, arc_start + 20, arc_start + 20 + 240, RING_EXERCISE)
 
-    # ── 4. Pulse line ────────────────────────────────────────────────────────
-    line = pulse_points(cx, cy, heart_s)
-    sw = max(1, size // 30)
+    # Inner ring - Stand (blue)
+    inner_r = middle_r - stroke - max(2, size // 32)
+    fill_ring_arc(buf, cx, cy, inner_r, stroke, arc_start + 40, arc_start + 40 + 200, RING_STAND)
+
+    # ── 3. Heart shape in center ─────────────────────────────────────────────
+    heart = heart_points(cx, cy + size * 0.02, icon_sz * 0.55)
+    scanline_fill(buf, heart, RING_MOVE)
+
+    # ── 4. Pulse/ECG line ────────────────────────────────────────────────────
+    line = pulse_points(cx, cy + size * 0.02, icon_sz * 0.55)
+    sw = max(1, size // 28)
 
     # Shadow pass
     shadow = [(x + 1, y + 1) for x, y in line]
@@ -330,16 +302,16 @@ def create_icon(size, filepath):
         draw_line(buf, int(line[i][0]), int(line[i][1]),
                   int(line[i+1][0]), int(line[i+1][1]), WHITE, sw)
 
-    # ── 5. Save ─────────────────────────────────────────────────────────────
+    # ── 5. Save ──────────────────────────────────────────────────────────────
     save_png(buf, filepath)
-
     print(f"  ✓ {os.path.basename(filepath)} ({size}×{size})")
 
 
 def main():
     os.makedirs(IPHONE_DIR, exist_ok=True)
-    os.makedirs(WATCH_DIR,  exist_ok=True)
+    os.makedirs(WATCH_DIR, exist_ok=True)
 
+    # iPhone icon sizes (all required iOS sizes)
     iphone = {
         "Icon-20.png":   20,   "Icon-40.png":   40,   "Icon-58.png":   58,
         "Icon-60.png":   60,   "Icon-76.png":   76,   "Icon-80.png":   80,
@@ -350,6 +322,7 @@ def main():
     for name, sz in iphone.items():
         create_icon(sz, os.path.join(IPHONE_DIR, name))
 
+    # Watch icon sizes (all required watchOS sizes)
     watch = {
         "Icon-20.png":   20,   "Icon-24.png":   24,   "Icon-27.5.png": 28,
         "Icon-29.png":   29,   "Icon-32.png":   32,   "Icon-33.png":   33,
@@ -371,7 +344,7 @@ def main():
     for name, sz in watch.items():
         create_icon(sz, os.path.join(WATCH_DIR, name))
 
-    print("\nAll icons generated.")
+    print("\nAll TeamPulse icons generated successfully!")
 
 
 if __name__ == "__main__":
